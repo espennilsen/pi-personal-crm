@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hannah — CRM</title>
+<style>
+  :root {
+    --bg: #0a0a0f; --bg2: #12121a; --bg3: #1a1a25;
+    --fg: #e0e0e8; --fg2: #888898; --fg3: #555568;
+    --accent: #7c6ff0; --accent2: #9d8cf0;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24; --blue: #60a5fa;
+    --border: #2a2a3a; --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
+
+  /* ── Navbar ─────────────────────────────────────────── */
+  nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 20px; display: flex; align-items: center; gap: 0; position: sticky; top: 0; z-index: 900; }
+  nav .nav-brand { font-size: 16px; font-weight: 700; color: var(--accent); padding: 12px 16px 12px 0; margin-right: 8px; border-right: 1px solid var(--border); }
+  nav a { color: var(--fg2); text-decoration: none; font-size: 13px; font-weight: 500; padding: 12px 16px; transition: all 0.15s; border-bottom: 2px solid transparent; }
+  nav a:hover { color: var(--fg); background: rgba(255,255,255,0.03); }
+  nav a.active { color: var(--accent2); border-bottom-color: var(--accent); }
+  nav .nav-spacer { flex: 1; }
+
+  /* ── Layout ─────────────────────────────────────────── */
+  .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+  .split-view { display: grid; grid-template-columns: 400px 1fr; gap: 20px; }
+  @media (max-width: 1024px) { .split-view { grid-template-columns: 1fr; } }
+
+  /* ── Toolbar ────────────────────────────────────────── */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar h1 { font-size: 18px; font-weight: 700; }
+  .search-box { background: var(--bg3); border: 1px solid var(--border); color: var(--fg); padding: 6px 12px; border-radius: var(--radius); font-size: 13px; width: 300px; }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+  .btn { background: var(--bg3); border: 1px solid var(--border); color: var(--fg); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-danger { color: var(--red); }
+  .btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+  /* ── Contact List ───────────────────────────────────── */
+  .contact-list { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; max-height: calc(100vh - 180px); overflow-y: auto; }
+  .contact-item { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .contact-item:hover { background: var(--bg3); }
+  .contact-item.active { background: rgba(124,111,240,0.15); border-left: 3px solid var(--accent); }
+  .contact-item:last-child { border-bottom: none; }
+  .contact-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .contact-meta { font-size: 12px; color: var(--fg2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .contact-company { color: var(--fg3); }
+  .contact-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .tag { background: var(--bg3); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10px; color: var(--fg2); }
+
+  /* ── Contact Detail ─────────────────────────────────── */
+  .detail-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; max-height: calc(100vh - 180px); overflow-y: auto; }
+  .detail-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .detail-actions { display: flex; gap: 8px; }
+  .contact-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--bg3); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+  .detail-name { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .detail-company { font-size: 14px; color: var(--fg2); margin-bottom: 12px; }
+  .detail-field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .detail-field-icon { color: var(--fg3); width: 20px; text-align: center; }
+  .section { margin-top: 24px; }
+  .section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--fg2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--fg3); }
+
+  /* ── Timeline ───────────────────────────────────────── */
+  .timeline { border-left: 2px solid var(--border); padding-left: 0; }
+  .timeline-item { position: relative; padding-left: 32px; padding-bottom: 20px; }
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-dot { position: absolute; left: -9px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--bg3); border: 3px solid var(--border); }
+  .timeline-dot.call { border-color: var(--blue); }
+  .timeline-dot.meeting { border-color: var(--green); }
+  .timeline-dot.email { border-color: var(--yellow); }
+  .timeline-dot.note { border-color: var(--accent); }
+  .timeline-dot.gift { border-color: var(--red); }
+  .timeline-date { font-size: 11px; color: var(--fg3); margin-bottom: 4px; }
+  .timeline-content { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .timeline-type { display: inline-block; background: var(--bg); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }
+  .timeline-type.call { color: var(--blue); }
+  .timeline-type.meeting { color: var(--green); }
+  .timeline-type.email { color: var(--yellow); }
+  .timeline-type.note { color: var(--accent); }
+  .timeline-type.gift { color: var(--red); }
+  .timeline-summary { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .timeline-notes { font-size: 12px; color: var(--fg2); }
+
+  /* ── Modal ──────────────────────────────────────────── */
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+  .modal.show { display: flex; }
+  .modal-content { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 18px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--fg2); font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius); }
+  .modal-close:hover { background: var(--bg3); color: var(--fg); }
+  .modal-body { padding: 20px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--fg2); }
+  .form-input, .form-textarea, .form-select { background: var(--bg3); border: 1px solid var(--border); color: var(--fg); padding: 8px 12px; border-radius: var(--radius); font-size: 13px; width: 100%; }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+  .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px; }
+
+  /* ── Relationships & Reminders ──────────────────────── */
+  .rel-list, .rem-list { display: flex; flex-direction: column; gap: 8px; }
+  .rel-item, .rem-item { background: var(--bg3); border: 1px solid var(--border); padding: 10px 12px; border-radius: var(--radius); font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .rel-type, .rem-type { font-size: 11px; color: var(--fg3); text-transform: uppercase; }
+  .rel-name { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-brand">Hannah</span>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/tasks">Tasks</a>
+  <a href="/calendar">Calendar</a>
+  <a href="/projects">Projects</a>
+  <a href="/vault">Vault</a>
+  <a href="/crm" class="active">CRM</a>
+  <div class="nav-spacer"></div>
+</nav>
+
+<div class="container">
+  <div class="toolbar">
+    <h1>📇 CRM</h1>
+    <input type="text" id="search" class="search-box" placeholder="Search contacts...">
+    <div style="flex: 1"></div>
+    <button class="btn btn-primary" onclick="showAddContactModal()">+ New Contact</button>
+  </div>
+
+  <div class="split-view">
+    <!-- Contact List -->
+    <div>
+      <div class="contact-list" id="contactList">
+        <div class="empty-state">
+          <p>No contacts yet</p>
+          <p style="margin-top: 8px; font-size: 12px;">Click "+ New Contact" to get started</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact Detail -->
+    <div>
+      <div class="detail-panel" id="detailPanel">
+        <div class="empty-state">
+          <p>Select a contact to view details</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Contact Modal -->
+<div class="modal" id="contactModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title" id="contactModalTitle">New Contact</h2>
+      <button class="modal-close" onclick="closeModal('contactModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="contactForm" onsubmit="saveContact(event)">
+        <input type="hidden" id="contactId">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input type="text" id="firstName" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" id="lastName" class="form-input">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="email" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="tel" id="phone" class="form-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Company</label>
+          <input type="text" id="companyName" class="form-input" list="companies">
+          <datalist id="companies"></datalist>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Birthday</label>
+            <input type="date" id="birthday" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Anniversary</label>
+            <input type="date" id="anniversary" class="form-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags (comma-separated)</label>
+          <input type="text" id="tags" class="form-input" placeholder="client, vip, developer">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea id="notes" class="form-textarea"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('contactModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('contactForm').dispatchEvent(new Event('submit'))">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Interaction Modal -->
+<div class="modal" id="interactionModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">Log Interaction</h2>
+      <button class="modal-close" onclick="closeModal('interactionModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="interactionForm" onsubmit="saveInteraction(event)">
+        <div class="form-group">
+          <label class="form-label">Type *</label>
+          <select id="interactionType" class="form-select" required>
+            <option value="call">📞 Call</option>
+            <option value="meeting">🤝 Meeting</option>
+            <option value="email">📧 Email</option>
+            <option value="note">📝 Note</option>
+            <option value="gift">🎁 Gift</option>
+            <option value="message">💬 Message</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Summary *</label>
+          <input type="text" id="interactionSummary" class="form-input" required placeholder="Brief description">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea id="interactionNotes" class="form-textarea"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date & Time</label>
+          <input type="datetime-local" id="happenedAt" class="form-input">
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('interactionModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('interactionForm').dispatchEvent(new Event('submit'))">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentContactId = null;
+  let allContacts = [];
+
+  // ── Init ─────────────────────────────────────────────────────
+
+  async function init() {
+    await loadContacts();
+    await loadCompanies();
+    
+    // Search handler
+    document.getElementById('search').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      filterContacts(query);
+    });
+  }
+
+  // ── Contacts ─────────────────────────────────────────────────
+
+  async function loadContacts() {
+    try {
+      const res = await fetch('/api/crm/contacts?limit=1000');
+      allContacts = await res.json();
+      renderContacts(allContacts);
+      if (allContacts.length > 0 && !currentContactId) {
+        selectContact(allContacts[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load contacts:', err);
+    }
+  }
+
+  function filterContacts(query) {
+    if (!query) {
+      renderContacts(allContacts);
+      return;
+    }
+    const filtered = allContacts.filter(c =>
+      c.first_name.toLowerCase().includes(query) ||
+      (c.last_name && c.last_name.toLowerCase().includes(query)) ||
+      (c.email && c.email.toLowerCase().includes(query)) ||
+      (c.company_name && c.company_name.toLowerCase().includes(query)) ||
+      (c.tags && c.tags.toLowerCase().includes(query))
+    );
+    renderContacts(filtered);
+  }
+
+  function renderContacts(contacts) {
+    const list = document.getElementById('contactList');
+    if (contacts.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No contacts found</p></div>';
+      return;
+    }
+    list.innerHTML = contacts.map(c => `
+      <div class="contact-item ${c.id === currentContactId ? 'active' : ''}" onclick="selectContact(${c.id})">
+        <div class="contact-name">${c.first_name} ${c.last_name || ''}</div>
+        <div class="contact-meta">
+          ${c.email ? `<span>📧 ${c.email}</span>` : ''}
+          ${c.company_name ? `<span class="contact-company">@ ${c.company_name}</span>` : ''}
+        </div>
+        ${c.tags ? `<div class="contact-tags">${c.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('')}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  async function selectContact(id) {
+    currentContactId = id;
+    renderContacts(allContacts);
+    await loadContactDetail(id);
+  }
+
+  async function loadContactDetail(id) {
+    try {
+      const res = await fetch(`/api/crm/contacts/${id}`);
+      const data = await res.json();
+      renderContactDetail(data);
+    } catch (err) {
+      console.error('Failed to load contact detail:', err);
+    }
+  }
+
+  function renderContactDetail(data) {
+    const { contact, interactions, reminders, relationships } = data;
+    
+    const initials = `${contact.first_name.charAt(0)}${(contact.last_name || '').charAt(0)}`.toUpperCase();
+    
+    const panel = document.getElementById('detailPanel');
+    panel.innerHTML = `
+      <div class="detail-header">
+        <div style="flex: 1;">
+          <div class="contact-avatar">${initials}</div>
+          <div class="detail-name">${contact.first_name} ${contact.last_name || ''}</div>
+          ${contact.company_name ? `<div class="detail-company">@ ${contact.company_name}</div>` : ''}
+          ${contact.tags ? `<div class="contact-tags">${contact.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('')}</div>` : ''}
+        </div>
+        <div class="detail-actions">
+          <button class="btn btn-sm" onclick="showEditContactModal(${contact.id})">✏️ Edit</button>
+          <button class="btn btn-sm" onclick="showInteractionModal()">+ Interaction</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteContact(${contact.id})">🗑️</button>
+        </div>
+      </div>
+
+      ${contact.email || contact.phone || contact.birthday || contact.anniversary ? `
+      <div class="section">
+        ${contact.email ? `<div class="detail-field"><span class="detail-field-icon">📧</span> ${contact.email}</div>` : ''}
+        ${contact.phone ? `<div class="detail-field"><span class="detail-field-icon">📞</span> ${contact.phone}</div>` : ''}
+        ${contact.birthday ? `<div class="detail-field"><span class="detail-field-icon">🎂</span> Birthday: ${contact.birthday}</div>` : ''}
+        ${contact.anniversary ? `<div class="detail-field"><span class="detail-field-icon">💍</span> Anniversary: ${contact.anniversary}</div>` : ''}
+      </div>
+      ` : ''}
+
+      ${contact.notes ? `
+      <div class="section">
+        <div class="section-title">Notes</div>
+        <div style="font-size: 13px; color: var(--fg2);">${contact.notes.replace(/\n/g, '<br>')}</div>
+      </div>
+      ` : ''}
+
+      ${reminders.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Reminders</div>
+        <div class="rem-list">
+          ${reminders.map(r => `
+            <div class="rem-item">
+              <div>
+                <div class="rem-type">${r.reminder_type}</div>
+                <div>${r.reminder_date}${r.message ? ` — ${r.message}` : ''}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${relationships.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Relationships</div>
+        <div class="rel-list">
+          ${relationships.map(r => `
+            <div class="rel-item">
+              <div>
+                <div class="rel-type">${r.relationship_type}</div>
+                <div class="rel-name">${r.first_name} ${r.last_name || ''}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="section">
+        <div class="section-title">Timeline</div>
+        ${interactions.length > 0 ? `
+          <div class="timeline">
+            ${interactions.map(i => `
+              <div class="timeline-item">
+                <div class="timeline-dot ${i.interaction_type}"></div>
+                <div class="timeline-date">${new Date(i.happened_at).toLocaleString()}</div>
+                <div class="timeline-content">
+                  <div class="timeline-type ${i.interaction_type}">${i.interaction_type}</div>
+                  <div class="timeline-summary">${i.summary}</div>
+                  ${i.notes ? `<div class="timeline-notes">${i.notes}</div>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div class="empty-state" style="padding: 20px;"><p>No interactions yet</p></div>'}
+      </div>
+    `;
+  }
+
+  // ── Companies ────────────────────────────────────────────────
+
+  async function loadCompanies() {
+    try {
+      const res = await fetch('/api/crm/companies');
+      const companies = await res.json();
+      const datalist = document.getElementById('companies');
+      datalist.innerHTML = companies.map(c => `<option value="${c.name}">`).join('');
+    } catch (err) {
+      console.error('Failed to load companies:', err);
+    }
+  }
+
+  // ── Modal Actions ────────────────────────────────────────────
+
+  function showAddContactModal() {
+    document.getElementById('contactModalTitle').textContent = 'New Contact';
+    document.getElementById('contactForm').reset();
+    document.getElementById('contactId').value = '';
+    showModal('contactModal');
+  }
+
+  async function showEditContactModal(id) {
+    const contact = allContacts.find(c => c.id === id);
+    if (!contact) return;
+
+    document.getElementById('contactModalTitle').textContent = 'Edit Contact';
+    document.getElementById('contactId').value = contact.id;
+    document.getElementById('firstName').value = contact.first_name;
+    document.getElementById('lastName').value = contact.last_name || '';
+    document.getElementById('email').value = contact.email || '';
+    document.getElementById('phone').value = contact.phone || '';
+    document.getElementById('companyName').value = contact.company_name || '';
+    document.getElementById('birthday').value = contact.birthday || '';
+    document.getElementById('anniversary').value = contact.anniversary || '';
+    document.getElementById('tags').value = contact.tags || '';
+    document.getElementById('notes').value = contact.notes || '';
+    showModal('contactModal');
+  }
+
+  async function saveContact(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('contactId').value;
+    const data = {
+      first_name: document.getElementById('firstName').value,
+      last_name: document.getElementById('lastName').value || null,
+      email: document.getElementById('email').value || null,
+      phone: document.getElementById('phone').value || null,
+      company_name: document.getElementById('companyName').value || null,
+      birthday: document.getElementById('birthday').value || null,
+      anniversary: document.getElementById('anniversary').value || null,
+      tags: document.getElementById('tags').value || null,
+      notes: document.getElementById('notes').value || null,
+    };
+
+    try {
+      if (id) {
+        await fetch(`/api/crm/contacts/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      } else {
+        const res = await fetch('/api/crm/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const newContact = await res.json();
+        currentContactId = newContact.id;
+      }
+      closeModal('contactModal');
+      await loadContacts();
+      if (currentContactId) {
+        await selectContact(currentContactId);
+      }
+    } catch (err) {
+      console.error('Failed to save contact:', err);
+      alert('Failed to save contact');
+    }
+  }
+
+  async function deleteContact(id) {
+    if (!confirm('Delete this contact? This cannot be undone.')) return;
+    
+    try {
+      await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' });
+      currentContactId = null;
+      await loadContacts();
+      document.getElementById('detailPanel').innerHTML = '<div class="empty-state"><p>Contact deleted</p></div>';
+    } catch (err) {
+      console.error('Failed to delete contact:', err);
+      alert('Failed to delete contact');
+    }
+  }
+
+  function showInteractionModal() {
+    if (!currentContactId) return;
+    document.getElementById('interactionForm').reset();
+    document.getElementById('happenedAt').value = new Date().toISOString().slice(0, 16);
+    showModal('interactionModal');
+  }
+
+  async function saveInteraction(e) {
+    e.preventDefault();
+    
+    const data = {
+      contact_id: currentContactId,
+      interaction_type: document.getElementById('interactionType').value,
+      summary: document.getElementById('interactionSummary').value,
+      notes: document.getElementById('interactionNotes').value || null,
+      happened_at: document.getElementById('happenedAt').value ? new Date(document.getElementById('happenedAt').value).toISOString() : null,
+    };
+
+    try {
+      await fetch('/api/crm/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      closeModal('interactionModal');
+      await loadContactDetail(currentContactId);
+    } catch (err) {
+      console.error('Failed to save interaction:', err);
+      alert('Failed to save interaction');
+    }
+  }
+
+  function showModal(id) {
+    document.getElementById(id).classList.add('show');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  // Close modals on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show'));
+    }
+  });
+
+  // Close modals on backdrop click
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('show');
+      }
+    });
+  });
+
+  // Start app
+  init();
+</script>
+
+</body>
+</html>
