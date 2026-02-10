@@ -21,5 +21,8 @@ export { registerCrmWeb } from "./web.ts";
 // Tool integration
 export { registerCrmTool } from "./tool.ts";
 
+// Note: registerCrmTool requires ExtensionAPI and a function that returns CrmApi
+// Example: registerCrmTool(pi, () => server.getExtension<CrmApi>("crm"))
+
 // Utilities
 export { readBody, jsonResponse } from "./host.ts";

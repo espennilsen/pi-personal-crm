@@ -12,7 +12,8 @@ import { registerCronTool } from "./extensions/cron/cron.ts";
 // ... existing imports ...
 
 // CRM extension
-import { crmDbModule, registerCrmWeb } from "pi-crm-personal";
+import { crmDbModule, registerCrmWeb, registerCrmTool } from "pi-crm-personal";
+import type { CrmApi } from "pi-crm-personal";
 ```
 
 ## 2. Register DB module (src/server.ts)
@@ -41,7 +42,24 @@ registerVaultHealthWeb(() => hannahServer, fileConfig);
 registerCrmWeb(() => hannahServer); // <-- Add this
 ```
 
-## 4. That's it!
+## 4. Register the CRM tool (src/server.ts)
+
+Find where other tools are registered (after the session is created) and add:
+
+```typescript
+// Tools
+registerMemory(pi);
+registerTdTool(pi);
+registerObsidianTool(pi);
+registerFetchWebsiteTool(pi);
+registerProjectInitTool(pi);
+registerWorkonTool(pi);
+registerSubagentTool(pi);
+registerCronTool(pi);
+registerCrmTool(pi, () => hannahServer.getExtension<CrmApi>("crm")); // <-- Add this
+```
+
+## 5. That's it!
 
 The CRM is now integrated:
 - `/crm` — contacts page (once implemented in td-6db651)

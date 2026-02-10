@@ -25,7 +25,9 @@
   "author": "Espen Nilsen <hi@e9n.dev>",
   "license": "MIT",
   "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*",
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
