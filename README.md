@@ -8,7 +8,7 @@ Personal CRM extension for [pi](https://github.com/badlogic/pi-mono) coding agen
 - 💬 Interaction timeline (calls, meetings, notes, emails, gifts, messages)
 - 🏷️ Groups with membership management
 - 🔔 Reminders (birthdays, anniversaries, custom)
-- 🔍 Full-text search across contacts and companies
+- 🔍 Fuzzy search with typo tolerance across contacts and companies
 - 📊 CSV import/export with duplicate detection
 - 🌐 Web UI with list/detail/timeline views (`/crm-web`)
 - 🤖 16 tool actions for the agent
@@ -60,9 +60,9 @@ npm run typecheck # TypeScript type checking
 Test locally with pi:
 
 ```bash
-pi -e ./src/index.ts
+pi -e ./
 ```
 
 ## License
 
-MIT
+[MIT](./LICENSE)
