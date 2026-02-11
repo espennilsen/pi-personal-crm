@@ -149,7 +149,8 @@ export interface CreateGroupData {
  */
 export interface ExtensionField {
 	id: number;
-	contact_id: number;
+	contact_id?: number;
+	company_id?: number;
 	source: string; // Extension identifier (e.g. "linkedin", "clearbit")
 	field_name: string; // Field key (e.g. "headline", "profile_url")
 	field_value: string; // Field value
@@ -163,6 +164,15 @@ export type ExtensionFieldType = (typeof VALID_EXTENSION_FIELD_TYPES)[number];
 
 export interface SetExtensionFieldData {
 	contact_id: number;
+	source: string;
+	field_name: string;
+	field_value: string;
+	label?: string;
+	field_type?: ExtensionFieldType; // Defaults to "text"
+}
+
+export interface SetCompanyExtensionFieldData {
+	company_id: number;
 	source: string;
 	field_name: string;
 	field_value: string;
@@ -230,11 +240,17 @@ export interface CrmApi {
 	addGroupMember(groupId: number, contactId: number): boolean;
 	removeGroupMember(groupId: number, contactId: number): boolean;
 
-	// Extension fields (third-party, read-only in UI)
+	// Extension fields — contacts (third-party, read-only in UI)
 	getExtensionFields(contactId: number): ExtensionField[];
 	getExtensionFieldsBySource(contactId: number, source: string): ExtensionField[];
 	setExtensionField(data: SetExtensionFieldData): ExtensionField;
 	deleteExtensionFields(contactId: number, source: string): number;
+
+	// Extension fields — companies (third-party, read-only in UI)
+	getCompanyExtensionFields(companyId: number): ExtensionField[];
+	getCompanyExtensionFieldsBySource(companyId: number, source: string): ExtensionField[];
+	setCompanyExtensionField(data: SetCompanyExtensionFieldData): ExtensionField;
+	deleteCompanyExtensionFields(companyId: number, source: string): number;
 
 	// Search
 	searchContacts(query: string, limit?: number): Contact[];

@@ -71,33 +71,45 @@ See [TOOL_EXAMPLES.md](./TOOL_EXAMPLES.md) for detailed examples.
 
 ## Extension Fields
 
-Third-party extensions (e.g. a LinkedIn scraper) can attach read-only fields to contacts. These are displayed in the web UI but not editable there.
+Third-party extensions (e.g. a LinkedIn scraper, Clearbit enrichment) can attach read-only fields to **contacts** and **companies**. Fields are displayed in the web UI but not editable there.
 
 ```typescript
 import { crmApi } from "pi-personal-crm/src/db.ts";
 
-// Upsert a field (idempotent, safe to call repeatedly)
+// ── Contact fields ──
 crmApi.setExtensionField({
   contact_id: 42,
-  source: "linkedin",          // your extension name
+  source: "linkedin",
   field_name: "headline",
   field_value: "Senior Engineer at Acme",
-  label: "Headline",           // optional display label
+  label: "Headline",
   field_type: "text",          // "text" | "url" | "date" | "number" | "json"
 });
 
-// Read fields
-const fields = crmApi.getExtensionFields(42);
-const linkedinFields = crmApi.getExtensionFieldsBySource(42, "linkedin");
-
-// Remove all fields from a source
+crmApi.getExtensionFields(42);
+crmApi.getExtensionFieldsBySource(42, "linkedin");
 crmApi.deleteExtensionFields(42, "linkedin");
+
+// ── Company fields ──
+crmApi.setCompanyExtensionField({
+  company_id: 5,
+  source: "clearbit",
+  field_name: "employee_count",
+  field_value: "250",
+  label: "Employees",
+  field_type: "number",
+});
+
+crmApi.getCompanyExtensionFields(5);
+crmApi.getCompanyExtensionFieldsBySource(5, "clearbit");
+crmApi.deleteCompanyExtensionFields(5, "clearbit");
 ```
 
 REST API:
-- `GET    /api/crm/contacts/:id/extension-fields[?source=...]`
-- `PUT    /api/crm/contacts/:id/extension-fields` — upsert (`{ source, field_name, field_value, label?, field_type? }`)
-- `DELETE /api/crm/contacts/:id/extension-fields?source=...`
+- `GET|PUT|DELETE /api/crm/contacts/:id/extension-fields[?source=...]`
+- `GET|PUT|DELETE /api/crm/companies/:id/extension-fields[?source=...]`
+
+PUT body: `{ source, field_name, field_value, label?, field_type? }`
 
 ## Extending the CRM
 

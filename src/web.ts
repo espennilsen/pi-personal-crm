@@ -362,6 +362,41 @@ export async function handleCrmRequest(
 			return;
 		}
 
+		// ── Company Extension Fields ────────────────────────
+		// GET /api/crm/companies/:id/extension-fields[?source=...]
+		const coExtFieldsMatch = urlPath.match(/^\/api\/crm\/companies\/(\d+)\/extension-fields$/);
+		if (coExtFieldsMatch && method === "GET") {
+			const companyId = parseInt(coExtFieldsMatch[1]);
+			const source = url.searchParams.get("source");
+			json(res, 200, source
+				? crmApi.getCompanyExtensionFieldsBySource(companyId, source)
+				: crmApi.getCompanyExtensionFields(companyId));
+			return;
+		}
+
+		// PUT /api/crm/companies/:id/extension-fields — upsert a field
+		if (coExtFieldsMatch && method === "PUT") {
+			const companyId = parseInt(coExtFieldsMatch[1]);
+			const body = JSON.parse(await readBody(req));
+			if (!body.source || !body.field_name || body.field_value == null) {
+				json(res, 400, { error: "source, field_name, and field_value are required" }); return;
+			}
+			if (body.field_type && !VALID_EXTENSION_FIELD_TYPES.includes(body.field_type)) {
+				json(res, 400, { error: `Invalid field_type — must be one of: ${VALID_EXTENSION_FIELD_TYPES.join(", ")}` }); return;
+			}
+			json(res, 200, crmApi.setCompanyExtensionField({ ...body, company_id: companyId }));
+			return;
+		}
+
+		// DELETE /api/crm/companies/:id/extension-fields?source=...
+		if (coExtFieldsMatch && method === "DELETE") {
+			const companyId = parseInt(coExtFieldsMatch[1]);
+			const source = url.searchParams.get("source");
+			if (!source) { json(res, 400, { error: "source query param is required" }); return; }
+			json(res, 200, { deleted: crmApi.deleteCompanyExtensionFields(companyId, source) });
+			return;
+		}
+
 		// 404
 		json(res, 404, { error: "Not found" });
 	} catch (err: any) {
