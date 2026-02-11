@@ -11,7 +11,6 @@
  *   crmRegistry.on("contact.created", async (contact) => { ... });
  */
 
-import type { DbModule, HostServer, WebRouteHandler } from "./host.ts";
 import type { Contact, Interaction, CustomFieldDef } from "./types.ts";
 
 // ── Event System ────────────────────────────────────────────────
@@ -39,7 +38,7 @@ export interface CrmEntityType {
 	label: string; // Display name (e.g. "Deals", "Tickets")
 	icon: string; // Emoji or icon class
 	fields: CustomFieldDef[]; // Schema for this entity
-	dbModule: DbModule; // Self-contained DB migrations
+	dbInitFn?: (dbPath: string) => void; // Self-contained DB initialization
 	contactRelation: "one-to-many" | "many-to-many"; // How it links to contacts
 }
 
@@ -141,7 +140,7 @@ export interface CrmSubPage {
 
 // ── API Route Registration ──────────────────────────────────────
 
-export type CrmApiHandler = (server: HostServer) => void;
+export type CrmApiHandler = () => void;
 
 // ── Registry Implementation ─────────────────────────────────────
 

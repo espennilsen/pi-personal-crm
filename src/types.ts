@@ -154,7 +154,7 @@ export interface CustomFieldDef {
 // ── CRM API ─────────────────────────────────────────────────────
 
 /**
- * Main CRM API that other modules can access via server.getExtension<CrmApi>("crm")
+ * Main CRM API — access via crmApi singleton from db.ts
  */
 export interface CrmApi {
 	// Contacts

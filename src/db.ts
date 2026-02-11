@@ -1,12 +1,12 @@
 /**
- * CRM Database Module.
+ * CRM Database.
  *
  * Self-contained: owns migrations, prepared statements, and CRUD operations.
- * Registers core entity types and interaction types with the registry.
+ * Call initDb(path) to open the database and run migrations.
  */
 
-import type { Database } from "better-sqlite3";
-import type { DbModule } from "./host.ts";
+import Database from "better-sqlite3";
+import type { Database as DatabaseType } from "better-sqlite3";
 import type {
 	CrmApi,
 	Contact,
@@ -81,14 +81,11 @@ let stmts: {
 
 // ── DB Module Definition ────────────────────────────────────────
 
-/**
- * CRM DB module. Pass to openDb() to register CRM tables.
- */
-export const crmDbModule: DbModule = {
-	name: "crm",
-	migrations: [
-		// Migration 1: Core tables
-		`
+// ── Migrations ──────────────────────────────────────────────────
+
+const migrations: string[] = [
+	// Migration 1: Core tables
+	`
 		-- Companies (referenced by contacts)
 		CREATE TABLE IF NOT EXISTS crm_companies (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -190,11 +187,37 @@ export const crmDbModule: DbModule = {
 		CREATE INDEX IF NOT EXISTS idx_group_members_group ON crm_group_members(group_id);
 		CREATE INDEX IF NOT EXISTS idx_group_members_contact ON crm_group_members(contact_id);
 		`,
-	],
+];
 
-	init(db: Database): void {
-		// Prepare all statements
-		stmts = {
+// ── Database Initialization ─────────────────────────────────────
+
+let db: DatabaseType;
+
+/**
+ * Open the CRM database, run migrations, and prepare statements.
+ * Safe to call multiple times (re-initializes).
+ */
+export function initDb(dbPath: string): void {
+	db = new Database(dbPath);
+	db.pragma("journal_mode = WAL");
+	db.pragma("foreign_keys = ON");
+
+	// Migration tracking
+	db.exec(`CREATE TABLE IF NOT EXISTS crm_module_versions (
+		module TEXT PRIMARY KEY,
+		version INTEGER NOT NULL DEFAULT 0
+	)`);
+
+	const versionRow = db.prepare("SELECT version FROM crm_module_versions WHERE module = ?").get("crm") as { version: number } | undefined;
+	const currentVersion = versionRow?.version ?? 0;
+
+	for (let i = currentVersion; i < migrations.length; i++) {
+		db.exec(migrations[i]);
+		db.prepare("INSERT OR REPLACE INTO crm_module_versions (module, version) VALUES (?, ?)").run("crm", i + 1);
+	}
+
+	// Prepare all statements
+	stmts = {
 			// Contacts
 			getContacts: db.prepare(`
 				SELECT 
@@ -401,10 +424,9 @@ export const crmDbModule: DbModule = {
 			`),
 		};
 
-		// Register core entity types and interaction types
-		registerCoreTypes();
-	},
-};
+	// Register core entity types and interaction types
+	registerCoreTypes();
+}
 
 // ── Registry Integration ────────────────────────────────────────
 

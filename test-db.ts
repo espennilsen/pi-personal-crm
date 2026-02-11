@@ -3,8 +3,7 @@
  * Run with: node --import tsx/esm test-db.ts
  */
 
-import Database from "better-sqlite3";
-import { crmDbModule, crmApi } from "./src/db.ts";
+import { initDb, crmApi } from "./src/db.ts";
 import * as fs from "node:fs";
 
 const DB_PATH = "./test-crm.db";
@@ -16,29 +15,10 @@ if (fs.existsSync(DB_PATH)) {
 
 console.log("📊 Testing CRM DB operations...\n");
 
-// Initialize DB
-const db = Database(DB_PATH);
-
-// Run migrations
-console.log("🔧 Running migrations...");
-db.exec(`CREATE TABLE IF NOT EXISTS module_versions (
-	module TEXT PRIMARY KEY,
-	version INTEGER NOT NULL DEFAULT 0
-)`);
-
-const versionRow = db.prepare("SELECT version FROM module_versions WHERE module = ?").get(crmDbModule.name) as { version: number } | undefined;
-const currentVersion = versionRow?.version ?? 0;
-
-for (let i = currentVersion; i < crmDbModule.migrations.length; i++) {
-	console.log(`  Migration ${i + 1}/${crmDbModule.migrations.length}`);
-	db.exec(crmDbModule.migrations[i]);
-	db.prepare("INSERT OR REPLACE INTO module_versions (module, version) VALUES (?, ?)").run(crmDbModule.name, i + 1);
-}
-
-// Initialize prepared statements
-crmDbModule.init?.(db);
-
-console.log("✅ Migrations complete\n");
+// Initialize DB (runs migrations + prepares statements)
+console.log("🔧 Initializing database...");
+initDb(DB_PATH);
+console.log("✅ Database ready\n");
 
 // Test operations
 try {
@@ -297,8 +277,6 @@ John,Doe,john@acme.example,,duplicate`;
 } catch (error) {
 	console.error("\n❌ Test failed:", error);
 	process.exit(1);
-} finally {
-	db.close();
 }
 
 // Clean up
