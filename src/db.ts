@@ -82,7 +82,6 @@ let stmts: {
 	getExtensionFields: any;
 	getExtensionFieldsBySource: any;
 	upsertExtensionField: any;
-	getExtensionFieldById: any;
 	deleteExtensionFields: any;
 
 	// Duplicate detection
@@ -491,10 +490,6 @@ export function initDb(dbPath: string): void {
 					label = COALESCE(excluded.label, crm_extension_fields.label),
 					field_type = excluded.field_type,
 					updated_at = datetime('now')
-			`),
-
-			getExtensionFieldById: db.prepare(`
-				SELECT * FROM crm_extension_fields WHERE id = ?
 			`),
 
 			deleteExtensionFields: db.prepare(`
@@ -954,7 +949,7 @@ export const crmApi: CrmApi = {
 	},
 
 	setExtensionField(data: SetExtensionFieldData): ExtensionField {
-		const result = stmts.upsertExtensionField.run(
+		stmts.upsertExtensionField.run(
 			data.contact_id,
 			data.source,
 			data.field_name,
@@ -962,12 +957,7 @@ export const crmApi: CrmApi = {
 			data.label ?? null,
 			data.field_type ?? "text",
 		);
-		// UPSERT: on insert we get lastInsertRowid, on update we need to look it up
-		if (result.changes > 0 && result.lastInsertRowid) {
-			const row = stmts.getExtensionFieldById.get(result.lastInsertRowid);
-			if (row) return row;
-		}
-		// Fallback: fetch by unique key
+		// Always look up by unique key — lastInsertRowid is unreliable on upsert-update
 		const fields = this.getExtensionFieldsBySource(data.contact_id, data.source);
 		return fields.find(f => f.field_name === data.field_name)!;
 	},
