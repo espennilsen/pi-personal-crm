@@ -189,7 +189,10 @@ export async function handleCrmRequest(
 			const id = parseInt(companyMatch[1]);
 			if (method === "PATCH") {
 				const body = JSON.parse(await readBody(req));
-				if (body.website !== undefined) body.website = sanitizeUrl(body.website);
+				if (body.website !== undefined) {
+					try { body.website = sanitizeUrl(body.website); }
+					catch (e: any) { json(res, 400, { error: e.message }); return; }
+				}
 				const co = crmApi.updateCompany(id, body);
 				if (!co) { json(res, 404, { error: "Not found" }); return; }
 				json(res, 200, co);
@@ -201,7 +204,8 @@ export async function handleCrmRequest(
 		if (method === "POST" && urlPath === "/api/crm/companies") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.name) { json(res, 400, { error: "name is required" }); return; }
-			body.website = sanitizeUrl(body.website);
+			try { body.website = sanitizeUrl(body.website); }
+			catch (e: any) { json(res, 400, { error: e.message }); return; }
 			json(res, 201, crmApi.createCompany(body));
 			return;
 		}
