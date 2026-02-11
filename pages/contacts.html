@@ -232,7 +232,7 @@
 
   async function loadContacts() {
     try {
-      allContacts = await (await fetch('/api/crm/contacts?limit=1000')).json();
+      allContacts = await (await fetch('api/crm/contacts?limit=1000')).json();
       renderContacts(allContacts);
       if (allContacts.length > 0 && !currentContactId) {
         selectContact(allContacts[0].id);
@@ -282,7 +282,7 @@
 
   async function loadContactDetail(id) {
     try {
-      const data = await (await fetch(`/api/crm/contacts/${id}`)).json();
+      const data = await (await fetch(`api/crm/contacts/${id}`)).json();
       renderContactDetail(data);
     } catch (err) {
       console.error('Failed to load contact detail:', err);
@@ -397,7 +397,7 @@
 
   async function loadCompanies() {
     try {
-      const companies = await (await fetch('/api/crm/companies')).json();
+      const companies = await (await fetch('api/crm/companies')).json();
       document.getElementById('companies').innerHTML = companies.map(c => `<option value="${esc(c.name)}">`).join('');
     } catch (err) {
       console.error('Failed to load companies:', err);
@@ -447,17 +447,17 @@
 
     try {
       if (id) {
-        await fetch(`/api/crm/contacts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        await fetch(`api/crm/contacts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
       } else {
         if (!force) {
-          const dupeRes = await fetch('/api/crm/contacts/check-duplicates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: data.first_name, last_name: data.last_name, email: data.email }) });
+          const dupeRes = await fetch('api/crm/contacts/check-duplicates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: data.first_name, last_name: data.last_name, email: data.email }) });
           const { duplicates } = await dupeRes.json();
           if (duplicates && duplicates.length > 0) {
             const names = duplicates.map(d => `${d.first_name} ${d.last_name || ''} (${d.email || 'no email'}, ID: ${d.id})`).join('\n  ');
             if (!confirm(`⚠️ Possible duplicate(s) found:\n  ${names}\n\nCreate anyway?`)) return;
           }
         }
-        const res = await fetch('/api/crm/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        const res = await fetch('api/crm/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         const newContact = await res.json();
         currentContactId = newContact.id;
       }
@@ -473,7 +473,7 @@
   async function deleteContact(id) {
     if (!confirm('Delete this contact? This cannot be undone.')) return;
     try {
-      await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' });
+      await fetch(`api/crm/contacts/${id}`, { method: 'DELETE' });
       currentContactId = null;
       await loadContacts();
       document.getElementById('detailPanel').innerHTML = '<div class="empty-state"><p>Contact deleted</p></div>';
@@ -502,7 +502,7 @@
       happened_at: document.getElementById('happenedAt').value ? new Date(document.getElementById('happenedAt').value).toISOString() : null,
     };
     try {
-      await fetch('/api/crm/interactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      await fetch('api/crm/interactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
       closeModal('interactionModal');
       await loadContactDetail(currentContactId);
     } catch (err) {
@@ -528,7 +528,7 @@
       message: document.getElementById('reminderMessage').value || null,
     };
     try {
-      await fetch('/api/crm/reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      await fetch('api/crm/reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
       closeModal('reminderModal');
       await loadContactDetail(currentContactId);
     } catch (err) {
@@ -562,7 +562,7 @@
       notes: document.getElementById('relationshipNotes').value || null,
     };
     try {
-      await fetch('/api/crm/relationships', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      await fetch('api/crm/relationships', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
       closeModal('relationshipModal');
       await loadContactDetail(currentContactId);
     } catch (err) {
@@ -575,7 +575,7 @@
 
   async function showGroupModal() {
     if (!currentContactId) return;
-    const [groupsRes, contactRes] = await Promise.all([fetch('/api/crm/groups'), fetch(`/api/crm/contacts/${currentContactId}`)]);
+    const [groupsRes, contactRes] = await Promise.all([fetch('api/crm/groups'), fetch(`api/crm/contacts/${currentContactId}`)]);
     allGroups = await groupsRes.json();
     const detail = await contactRes.json();
     const contactGroupIds = new Set((detail.groups || []).map(g => g.id));
@@ -608,9 +608,9 @@
   async function toggleGroup(groupId, add) {
     try {
       if (add) {
-        await fetch(`/api/crm/groups/${groupId}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: currentContactId }) });
+        await fetch(`api/crm/groups/${groupId}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: currentContactId }) });
       } else {
-        await fetch(`/api/crm/groups/${groupId}/members/${currentContactId}`, { method: 'DELETE' });
+        await fetch(`api/crm/groups/${groupId}/members/${currentContactId}`, { method: 'DELETE' });
       }
       await showGroupModal();
       await loadContactDetail(currentContactId);
@@ -624,8 +624,8 @@
     const name = nameInput.value.trim();
     if (!name) return;
     try {
-      const group = await (await fetch('/api/crm/groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })).json();
-      await fetch(`/api/crm/groups/${group.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: currentContactId }) });
+      const group = await (await fetch('api/crm/groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })).json();
+      await fetch(`api/crm/groups/${group.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: currentContactId }) });
       nameInput.value = '';
       await showGroupModal();
       await loadContactDetail(currentContactId);
@@ -637,7 +637,7 @@
 
   // ── Import/Export ────────────────────────────────────────────
 
-  function exportCsv() { window.location.href = '/api/crm/contacts/export.csv'; }
+  function exportCsv() { window.location.href = 'api/crm/contacts/export.csv'; }
 
   async function importCsv(e) {
     const file = e.target.files[0];
@@ -645,7 +645,7 @@
     const text = await file.text();
     e.target.value = '';
     try {
-      const result = await (await fetch('/api/crm/contacts/import', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: text })).json();
+      const result = await (await fetch('api/crm/contacts/import', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: text })).json();
       let msg = `Import complete:\n✅ Created: ${result.created}\n⏭ Skipped: ${result.skipped}`;
       if (result.duplicates && result.duplicates.length > 0) {
         msg += `\n\n⚠️ Duplicates found (skipped):`;
@@ -665,19 +665,19 @@
 
   async function deleteInteraction(id) {
     if (!confirm('Delete this interaction?')) return;
-    try { await fetch(`/api/crm/interactions/${id}`, { method: 'DELETE' }); await loadContactDetail(currentContactId); }
+    try { await fetch(`api/crm/interactions/${id}`, { method: 'DELETE' }); await loadContactDetail(currentContactId); }
     catch (err) { console.error('Failed to delete interaction:', err); }
   }
 
   async function deleteReminder(id) {
     if (!confirm('Delete this reminder?')) return;
-    try { await fetch(`/api/crm/reminders/${id}`, { method: 'DELETE' }); await loadContactDetail(currentContactId); }
+    try { await fetch(`api/crm/reminders/${id}`, { method: 'DELETE' }); await loadContactDetail(currentContactId); }
     catch (err) { console.error('Failed to delete reminder:', err); }
   }
 
   async function deleteRelationship(id) {
     if (!confirm('Delete this relationship?')) return;
-    try { await fetch(`/api/crm/relationships/${id}`, { method: 'DELETE' }); await loadContactDetail(currentContactId); }
+    try { await fetch(`api/crm/relationships/${id}`, { method: 'DELETE' }); await loadContactDetail(currentContactId); }
     catch (err) { console.error('Failed to delete relationship:', err); }
   }
 </script>
