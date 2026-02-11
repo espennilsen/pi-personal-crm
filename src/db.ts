@@ -66,6 +66,12 @@ let stmts: {
 	getGroups: any;
 	insertGroup: any;
 	deleteGroup: any;
+
+	// Group members
+	getGroupMembers: any;
+	getContactGroups: any;
+	addGroupMember: any;
+	removeGroupMember: any;
 };
 
 // ── DB Module Definition ────────────────────────────────────────
@@ -163,6 +169,21 @@ export const crmDbModule: DbModule = {
 		CREATE INDEX IF NOT EXISTS idx_reminders_date ON crm_reminders(reminder_date);
 		CREATE INDEX IF NOT EXISTS idx_relationships_contact ON crm_relationships(contact_id);
 		CREATE INDEX IF NOT EXISTS idx_relationships_related ON crm_relationships(related_contact_id);
+		`,
+
+		// Migration 2: Group membership join table
+		`
+		CREATE TABLE IF NOT EXISTS crm_group_members (
+			group_id INTEGER NOT NULL,
+			contact_id INTEGER NOT NULL,
+			added_at TEXT NOT NULL DEFAULT (datetime('now')),
+			PRIMARY KEY (group_id, contact_id),
+			FOREIGN KEY (group_id) REFERENCES crm_groups(id) ON DELETE CASCADE,
+			FOREIGN KEY (contact_id) REFERENCES crm_contacts(id) ON DELETE CASCADE
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_group_members_group ON crm_group_members(group_id);
+		CREATE INDEX IF NOT EXISTS idx_group_members_contact ON crm_group_members(contact_id);
 		`,
 	],
 
@@ -330,6 +351,34 @@ export const crmDbModule: DbModule = {
 			`),
 
 			deleteGroup: db.prepare(`DELETE FROM crm_groups WHERE id = ?`),
+
+			// Group members
+			getGroupMembers: db.prepare(`
+				SELECT c.*, co.name as company_name
+				FROM crm_group_members gm
+				JOIN crm_contacts c ON gm.contact_id = c.id
+				LEFT JOIN crm_companies co ON c.company_id = co.id
+				WHERE gm.group_id = ?
+				ORDER BY c.first_name, c.last_name
+			`),
+
+			getContactGroups: db.prepare(`
+				SELECT g.*
+				FROM crm_group_members gm
+				JOIN crm_groups g ON gm.group_id = g.id
+				WHERE gm.contact_id = ?
+				ORDER BY g.name
+			`),
+
+			addGroupMember: db.prepare(`
+				INSERT OR IGNORE INTO crm_group_members (group_id, contact_id)
+				VALUES (?, ?)
+			`),
+
+			removeGroupMember: db.prepare(`
+				DELETE FROM crm_group_members
+				WHERE group_id = ? AND contact_id = ?
+			`),
 		};
 
 		// Register core entity types and interaction types
@@ -591,6 +640,26 @@ export const crmApi: CrmApi = {
 
 	deleteGroup(id: number): boolean {
 		const result = stmts.deleteGroup.run(id);
+		return result.changes > 0;
+	},
+
+	// ── Group Membership ────────────────────────────────────────
+
+	getGroupMembers(groupId: number): Contact[] {
+		return stmts.getGroupMembers.all(groupId);
+	},
+
+	getContactGroups(contactId: number): Group[] {
+		return stmts.getContactGroups.all(contactId);
+	},
+
+	addGroupMember(groupId: number, contactId: number): boolean {
+		const result = stmts.addGroupMember.run(groupId, contactId);
+		return result.changes > 0;
+	},
+
+	removeGroupMember(groupId: number, contactId: number): boolean {
+		const result = stmts.removeGroupMember.run(groupId, contactId);
 		return result.changes > 0;
 	},
 

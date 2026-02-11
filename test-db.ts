@@ -152,6 +152,35 @@ try {
 	const groups = crmApi.getGroups();
 	console.log(`  Total groups: ${groups.length}`);
 
+	// Group membership
+	console.log("\n📂 Testing group membership...");
+	const added = crmApi.addGroupMember(group.id, contact.id);
+	console.log(`  Add John to VIP Clients: ${added}`);
+	crmApi.addGroupMember(group.id, contact2.id);
+	console.log(`  Add Jane to VIP Clients: true`);
+
+	const members = crmApi.getGroupMembers(group.id);
+	console.log(`  Group members: ${members.length}`);
+	for (const m of members) {
+		console.log(`  - ${m.first_name} ${m.last_name}`);
+	}
+	if (members.length !== 2) {
+		throw new Error(`Expected 2 group members, got ${members.length}`);
+	}
+
+	const contactGroups = crmApi.getContactGroups(contact.id);
+	console.log(`  John's groups: ${contactGroups.length}`);
+	if (contactGroups.length !== 1 || contactGroups[0].name !== "VIP Clients") {
+		throw new Error(`Expected 1 group "VIP Clients", got ${JSON.stringify(contactGroups)}`);
+	}
+
+	const removed = crmApi.removeGroupMember(group.id, contact2.id);
+	console.log(`  Remove Jane from VIP Clients: ${removed}`);
+	const membersAfter = crmApi.getGroupMembers(group.id);
+	if (membersAfter.length !== 1) {
+		throw new Error(`Expected 1 member after removal, got ${membersAfter.length}`);
+	}
+
 	// Delete operations
 	console.log("\n🗑️  Testing deletions...");
 	console.log(`  Delete relationship: ${crmApi.deleteRelationship(relationship.id)}`);

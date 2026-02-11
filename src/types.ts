@@ -192,6 +192,12 @@ export interface CrmApi {
 	createGroup(data: CreateGroupData): Group;
 	deleteGroup(id: number): boolean;
 
+	// Group membership
+	getGroupMembers(groupId: number): Contact[];
+	getContactGroups(contactId: number): Group[];
+	addGroupMember(groupId: number, contactId: number): boolean;
+	removeGroupMember(groupId: number, contactId: number): boolean;
+
 	// Search
 	searchContacts(query: string, limit?: number): Contact[];
 	searchCompanies(query: string, limit?: number): Company[];

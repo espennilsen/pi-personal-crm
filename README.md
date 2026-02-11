@@ -7,12 +7,12 @@ Personal CRM extension for Pi coding agents with extensible plugin architecture.
 **Core CRM:**
 - 👤 Contacts with custom fields
 - 🏢 Companies and relationships
-- 💬 Interaction timeline (calls, meetings, notes, emails)
+- 💬 Interaction timeline (calls, meetings, notes, emails, gifts, messages)
 - 🏷️ Groups and tags
 - 🔔 Reminders (birthdays, anniversaries, custom dates)
 - 🔍 Full-text search
 - 🌐 Web UI with list/detail/timeline views
-- 🤖 Pi tool for contact lookup and logging
+- 🤖 Pi tool for contact lookup and logging (9 actions)
 
 **Plugin Architecture:**
 Other extensions can register:
@@ -35,14 +35,20 @@ npm install pi-crm-personal
 ## Usage
 
 ```typescript
-import { crmDbModule, registerCrmExtension } from "pi-crm-personal";
+import { crmDbModule, registerCrmWeb, registerCrmTool } from "pi-crm-personal";
+import type { CrmApi } from "pi-crm-personal";
 
-// 1. Register DB module (in openDb call)
+// 1. Register DB module (in your openDb call)
 const db = openDb(dbPath, [crmDbModule, ...otherModules]);
 
-// 2. Register web routes and tool
-registerCrmExtension(server);
+// 2. Register web routes (serves /crm page and /api/crm/* endpoints)
+registerCrmWeb(() => myServer);
+
+// 3. Register agent tool (contact lookup, interaction logging, etc.)
+registerCrmTool(pi, () => myServer.getExtension<CrmApi>("crm"));
 ```
+
+See [AGENTS.md](./AGENTS.md) for full integration guide.
 
 ## Extension API
 
@@ -56,9 +62,12 @@ crmRegistry.registerEntityType({
   name: "deal",
   label: "Deals",
   icon: "💰",
-  fields: [...],
+  fields: [
+    { name: "value", label: "Deal Value", type: "number" },
+    { name: "stage", label: "Stage", type: "select", options: ["Lead", "Qualified", "Closed"] },
+  ],
   dbModule: dealDbModule,
-  contactRelation: "many-to-many"
+  contactRelation: "many-to-many",
 });
 
 // Listen to events
@@ -69,9 +78,16 @@ crmRegistry.on("contact.created", async (contact) => {
 
 ## Architecture
 
-- **Host-agnostic:** Works with any Pi agent that provides DbModule and server registration API
+- **Host-agnostic:** Works with any Pi agent that implements `HostServer` and `DbModule` interfaces
 - **Self-contained:** Owns its DB schema, migrations, and CRUD operations
 - **Extensible:** Plugin registry for building business CRM features on top
+
+## Scripts
+
+```bash
+npm test        # Run DB smoke tests
+npm run typecheck  # TypeScript type checking
+```
 
 ## License
 

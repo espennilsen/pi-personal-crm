@@ -196,6 +196,19 @@ function doRegister(server: HostServer): void {
 		jsonResponse(res, 200, companies);
 	});
 
+	// DELETE /api/crm/companies/:id — delete company
+	server.addWebRoute("DELETE", "/api/crm/companies/:id", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/companies\/(\d+)$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid company ID" });
+			return;
+		}
+
+		const id = parseInt(match[1]);
+		const ok = crmApi.deleteCompany(id);
+		jsonResponse(res, 200, { ok });
+	});
+
 	// POST /api/crm/companies — create company
 	server.addWebRoute("POST", "/api/crm/companies", async (req, res) => {
 		try {
@@ -245,6 +258,19 @@ function doRegister(server: HostServer): void {
 		}
 	});
 
+	// DELETE /api/crm/interactions/:id — delete interaction
+	server.addWebRoute("DELETE", "/api/crm/interactions/:id", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/interactions\/(\d+)$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid interaction ID" });
+			return;
+		}
+
+		const id = parseInt(match[1]);
+		const ok = crmApi.deleteInteraction(id);
+		jsonResponse(res, 200, { ok });
+	});
+
 	// ── Reminders ───────────────────────────────────────────────
 
 	// GET /api/crm/reminders — list reminders
@@ -279,6 +305,68 @@ function doRegister(server: HostServer): void {
 		}
 	});
 
+	// DELETE /api/crm/reminders/:id — delete reminder
+	server.addWebRoute("DELETE", "/api/crm/reminders/:id", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/reminders\/(\d+)$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid reminder ID" });
+			return;
+		}
+
+		const id = parseInt(match[1]);
+		const ok = crmApi.deleteReminder(id);
+		jsonResponse(res, 200, { ok });
+	});
+
+	// ── Relationships ───────────────────────────────────────────
+
+	// GET /api/crm/relationships?contact_id=N — list relationships for a contact
+	server.addWebRoute("GET", "/api/crm/relationships", (_req, res, url) => {
+		const contactId = url.searchParams.get("contact_id");
+		if (!contactId) {
+			jsonResponse(res, 400, { error: "contact_id is required" });
+			return;
+		}
+		const relationships = crmApi.getRelationships(parseInt(contactId));
+		jsonResponse(res, 200, relationships);
+	});
+
+	// POST /api/crm/relationships — create relationship
+	server.addWebRoute("POST", "/api/crm/relationships", async (req, res) => {
+		try {
+			const body = JSON.parse(await readBody(req));
+
+			if (!body.contact_id || !body.related_contact_id || !body.relationship_type) {
+				jsonResponse(res, 400, { error: "contact_id, related_contact_id, and relationship_type are required" });
+				return;
+			}
+
+			const relationship = crmApi.createRelationship({
+				contact_id: body.contact_id,
+				related_contact_id: body.related_contact_id,
+				relationship_type: body.relationship_type,
+				notes: body.notes,
+			});
+
+			jsonResponse(res, 201, relationship);
+		} catch (err: any) {
+			jsonResponse(res, 400, { error: err.message });
+		}
+	});
+
+	// DELETE /api/crm/relationships/:id — delete relationship
+	server.addWebRoute("DELETE", "/api/crm/relationships/:id", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/relationships\/(\d+)$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid relationship ID" });
+			return;
+		}
+
+		const id = parseInt(match[1]);
+		const ok = crmApi.deleteRelationship(id);
+		jsonResponse(res, 200, { ok });
+	});
+
 	// ── Groups ──────────────────────────────────────────────────
 
 	// GET /api/crm/groups — list groups
@@ -306,5 +394,69 @@ function doRegister(server: HostServer): void {
 		} catch (err: any) {
 			jsonResponse(res, 400, { error: err.message });
 		}
+	});
+
+	// GET /api/crm/groups/:id/members — list group members
+	server.addWebRoute("GET", "/api/crm/groups/:id/members", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/groups\/(\d+)\/members$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid group ID" });
+			return;
+		}
+
+		const groupId = parseInt(match[1]);
+		const members = crmApi.getGroupMembers(groupId);
+		jsonResponse(res, 200, members);
+	});
+
+	// POST /api/crm/groups/:id/members — add contact to group
+	server.addWebRoute("POST", "/api/crm/groups/:id/members", async (req, res, url) => {
+		try {
+			const match = url.pathname.match(/\/api\/crm\/groups\/(\d+)\/members$/);
+			if (!match) {
+				jsonResponse(res, 400, { error: "Invalid group ID" });
+				return;
+			}
+
+			const groupId = parseInt(match[1]);
+			const body = JSON.parse(await readBody(req));
+
+			if (!body.contact_id) {
+				jsonResponse(res, 400, { error: "contact_id is required" });
+				return;
+			}
+
+			const ok = crmApi.addGroupMember(groupId, body.contact_id);
+			jsonResponse(res, ok ? 201 : 200, { ok });
+		} catch (err: any) {
+			jsonResponse(res, 400, { error: err.message });
+		}
+	});
+
+	// DELETE /api/crm/groups/:id/members/:contactId — remove contact from group
+	server.addWebRoute("DELETE", "/api/crm/groups/:id/members/:contactId", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/groups\/(\d+)\/members\/(\d+)$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid group or contact ID" });
+			return;
+		}
+
+		const groupId = parseInt(match[1]);
+		const contactId = parseInt(match[2]);
+		const ok = crmApi.removeGroupMember(groupId, contactId);
+		jsonResponse(res, 200, { ok });
+	});
+
+	// DELETE /api/crm/groups/:id — delete group
+	server.addWebRoute("DELETE", "/api/crm/groups/:id", (_req, res, url) => {
+		const match = url.pathname.match(/\/api\/crm\/groups\/(\d+)$/);
+		if (!match) {
+			jsonResponse(res, 400, { error: "Invalid group ID" });
+			return;
+		}
+
+		const id = parseInt(match[1]);
+		const ok = crmApi.deleteGroup(id);
+		jsonResponse(res, 200, { ok });
 	});
 }
