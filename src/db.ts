@@ -446,6 +446,78 @@ function registerCoreTypes(): void {
 	}
 }
 
+// ── Smart Search ────────────────────────────────────────────────
+
+/**
+ * Search contacts with smart name matching.
+ *
+ * Step 1: Split query into terms, match ALL terms against first_name OR last_name.
+ *   "John Smith" → each of ["John","Smith"] must appear in first_name or last_name.
+ *   This handles "John Smith", "Smith John", "John Michael Smith", etc.
+ *
+ * Step 2 (fallback): If no results and query contains a comma, try "Last, First" format.
+ *   "Smith, John" → last_name LIKE "%Smith%" AND first_name LIKE "%John%"
+ *
+ * Also searches email, phone, nickname, tags, company_name as a simple LIKE fallback.
+ */
+function searchContactsSmart(query: string, limit: number): Contact[] {
+	const trimmed = query.trim();
+	if (!trimmed) return [];
+
+	const terms = trimmed.split(/\s+/).filter(t => t.length > 0);
+
+	// Step 1: All terms must match against first_name or last_name
+	if (terms.length > 1) {
+		const conditions = terms.map((_t, i) =>
+			`(LOWER(c.first_name) LIKE LOWER(@term${i}) OR LOWER(COALESCE(c.last_name, '')) LIKE LOWER(@term${i}))`
+		).join(" AND ");
+
+		const sql = `
+			SELECT c.*, co.name as company_name
+			FROM crm_contacts c
+			LEFT JOIN crm_companies co ON c.company_id = co.id
+			WHERE ${conditions}
+			ORDER BY c.first_name, c.last_name
+			LIMIT @limit
+		`;
+
+		const params: Record<string, string | number> = { limit };
+		for (let i = 0; i < terms.length; i++) {
+			params[`term${i}`] = `%${terms[i]}%`;
+		}
+
+		const results: Contact[] = db.prepare(sql).all(params) as Contact[];
+		if (results.length > 0) return results;
+
+		// Step 2: Comma fallback — "Last, First"
+		if (trimmed.includes(",")) {
+			const [lastName, ...firstParts] = trimmed.split(",").map(s => s.trim());
+			const firstName = firstParts.join(" ").trim();
+			if (lastName && firstName) {
+				const commaSql = `
+					SELECT c.*, co.name as company_name
+					FROM crm_contacts c
+					LEFT JOIN crm_companies co ON c.company_id = co.id
+					WHERE LOWER(COALESCE(c.last_name, '')) LIKE LOWER(@last)
+					  AND LOWER(c.first_name) LIKE LOWER(@first)
+					ORDER BY c.first_name, c.last_name
+					LIMIT @limit
+				`;
+				const commaResults: Contact[] = db.prepare(commaSql).all({
+					last: `%${lastName}%`,
+					first: `%${firstName}%`,
+					limit,
+				}) as Contact[];
+				if (commaResults.length > 0) return commaResults;
+			}
+		}
+	}
+
+	// Fallback: original single-pattern LIKE across all fields
+	const pattern = `%${trimmed}%`;
+	return stmts.searchContacts.all(pattern, pattern, pattern, pattern, pattern, pattern, limit);
+}
+
 // ── CRM API Implementation ──────────────────────────────────────
 
 /**
@@ -456,8 +528,7 @@ export const crmApi: CrmApi = {
 
 	getContacts(search?: string, limit: number = 100): Contact[] {
 		if (search) {
-			const pattern = `%${search}%`;
-			return stmts.searchContacts.all(pattern, pattern, pattern, pattern, pattern, pattern, limit);
+			return searchContactsSmart(search, limit);
 		}
 		return stmts.getContacts.all(limit);
 	},

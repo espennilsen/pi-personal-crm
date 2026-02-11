@@ -66,10 +66,39 @@ try {
 	});
 	console.log(`  Created: ${reminder.reminder_type} on ${reminder.reminder_date}`);
 
-	// Search contacts
+	// Search contacts — basic
 	console.log("\n🔍 Searching contacts...");
 	const results = crmApi.searchContacts("john");
 	console.log(`  Found ${results.length} contact(s)`);
+
+	// Search contacts — full name
+	console.log("\n🔍 Testing full-name search...");
+	const fullName = crmApi.searchContacts("John Doe");
+	console.log(`  "John Doe": ${fullName.length} result(s)`);
+	if (fullName.length !== 1 || fullName[0].id !== contact.id) {
+		throw new Error(`Expected 1 result for "John Doe", got ${fullName.length}`);
+	}
+
+	// Search — reversed name
+	const reversed = crmApi.searchContacts("Doe John");
+	console.log(`  "Doe John": ${reversed.length} result(s)`);
+	if (reversed.length !== 1) {
+		throw new Error(`Expected 1 result for "Doe John", got ${reversed.length}`);
+	}
+
+	// Search — comma format
+	const comma = crmApi.searchContacts("Doe, John");
+	console.log(`  "Doe, John": ${comma.length} result(s)`);
+	if (comma.length !== 1) {
+		throw new Error(`Expected 1 result for "Doe, John", got ${comma.length}`);
+	}
+
+	// Search — partial
+	const partial = crmApi.searchContacts("john@acme");
+	console.log(`  "john@acme": ${partial.length} result(s)`);
+	if (partial.length !== 1) {
+		throw new Error(`Expected 1 result for email search, got ${partial.length}`);
+	}
 
 	// Get interactions
 	console.log("\n📋 Getting interactions...");
