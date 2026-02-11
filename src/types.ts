@@ -173,11 +173,13 @@ export interface CrmApi {
 
 	// Interactions
 	getInteractions(contactId: number): Interaction[];
+	getAllInteractions(): Interaction[];
 	createInteraction(data: CreateInteractionData): Interaction;
 	deleteInteraction(id: number): boolean;
 
 	// Reminders
 	getReminders(contactId?: number): Reminder[];
+	getAllReminders(): Reminder[];
 	getUpcomingReminders(days?: number): Reminder[];
 	createReminder(data: CreateReminderData): Reminder;
 	deleteReminder(id: number): boolean;

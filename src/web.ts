@@ -18,10 +18,18 @@ let serverPort: number | null = null;
 export function startCrmServer(port: number = 4100): string {
 	if (server) stopCrmServer();
 
-	const CRM_HTML = fs.readFileSync(
+	const shellHtml = fs.readFileSync(
 		path.resolve(import.meta.dirname, "../crm.html"),
 		"utf-8",
 	);
+	const pageDir = path.resolve(import.meta.dirname, "../pages");
+	const pageNames = ["contacts", "groups", "interactions", "reminders"];
+	const pagesHtml = pageNames
+		.map((name) =>
+			fs.readFileSync(path.join(pageDir, `${name}.html`), "utf-8"),
+		)
+		.join("\n\n");
+	const CRM_HTML = shellHtml.replace("<!-- PAGES -->", pagesHtml);
 
 	server = http.createServer(async (req, res) => {
 		const url = new URL(req.url ?? "/", `http://localhost:${port}`);
@@ -145,6 +153,16 @@ export function startCrmServer(port: number = 4100): string {
 			}
 
 			// ── Interactions ────────────────────────────────────
+			if (method === "GET" && url.pathname === "/api/crm/interactions") {
+				const contactId = url.searchParams.get("contact_id");
+				if (contactId) {
+					json(res, 200, crmApi.getInteractions(parseInt(contactId)));
+				} else {
+					json(res, 200, crmApi.getAllInteractions());
+				}
+				return;
+			}
+
 			if (method === "POST" && url.pathname === "/api/crm/interactions") {
 				const body = JSON.parse(await readBody(req));
 				if (!body.contact_id || !body.interaction_type || !body.summary) {
@@ -161,9 +179,15 @@ export function startCrmServer(port: number = 4100): string {
 			}
 
 			// ── Reminders ───────────────────────────────────────
+			if (method === "GET" && url.pathname === "/api/crm/reminders/upcoming") {
+				const days = parseInt(url.searchParams.get("days") ?? "30");
+				json(res, 200, crmApi.getUpcomingReminders(days));
+				return;
+			}
+
 			if (method === "GET" && url.pathname === "/api/crm/reminders") {
 				const contactId = url.searchParams.get("contact_id");
-				json(res, 200, contactId ? crmApi.getReminders(parseInt(contactId)) : crmApi.getReminders());
+				json(res, 200, contactId ? crmApi.getReminders(parseInt(contactId)) : crmApi.getAllReminders());
 				return;
 			}
 

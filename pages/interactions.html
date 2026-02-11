@@ -1,0 +1,90 @@
+<!-- ══════════ INTERACTIONS PAGE ══════════ -->
+<div id="page-interactions" class="page" style="display: none;">
+  <div class="toolbar">
+    <h1>💬 Interactions</h1>
+    <input type="text" id="interactionsSearch" class="search-box" placeholder="Search interactions...">
+    <select id="interactionsTypeFilter" class="form-select" style="width: 160px; padding: 6px 12px;" onchange="filterInteractionsPage()">
+      <option value="">All types</option>
+      <option value="call">📞 Call</option>
+      <option value="meeting">🤝 Meeting</option>
+      <option value="email">📧 Email</option>
+      <option value="note">📝 Note</option>
+      <option value="gift">🎁 Gift</option>
+      <option value="message">💬 Message</option>
+    </select>
+    <div style="flex: 1"></div>
+  </div>
+
+  <div id="interactionsPageList">
+    <div class="empty-state"><p>Loading interactions...</p></div>
+  </div>
+</div>
+
+<script>
+  // ── Interactions Page ─────────────────────────────────────────
+
+  let allPageInteractions = [];
+
+  async function loadInteractionsPage() {
+    try {
+      allPageInteractions = await (await fetch('/api/crm/interactions')).json();
+      filterInteractionsPage();
+    } catch (err) {
+      console.error('Failed to load interactions:', err);
+    }
+  }
+
+  function filterInteractionsPage() {
+    const search = (document.getElementById('interactionsSearch').value || '').toLowerCase();
+    const typeFilter = document.getElementById('interactionsTypeFilter').value;
+
+    let filtered = allPageInteractions;
+    if (typeFilter) filtered = filtered.filter(i => i.interaction_type === typeFilter);
+    if (search) {
+      filtered = filtered.filter(i =>
+        i.summary.toLowerCase().includes(search) ||
+        (i.notes && i.notes.toLowerCase().includes(search)) ||
+        (i.first_name && i.first_name.toLowerCase().includes(search)) ||
+        (i.last_name && i.last_name.toLowerCase().includes(search))
+      );
+    }
+    renderInteractionsPage(filtered);
+  }
+
+  function renderInteractionsPage(interactions) {
+    const container = document.getElementById('interactionsPageList');
+    if (interactions.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>No interactions found</p></div>';
+      return;
+    }
+
+    container.innerHTML = `<div class="interactions-grid">${interactions.map(i => `
+      <div class="interaction-row">
+        <div class="interaction-icon ${esc(i.interaction_type)}">${typeIcons[i.interaction_type] || '💬'}</div>
+        <div class="interaction-body">
+          <div class="interaction-header">
+            <span class="interaction-contact" onclick="selectContact(${i.contact_id})">${esc(i.first_name)} ${esc(i.last_name)}</span>
+            <span class="timeline-type ${esc(i.interaction_type)}">${esc(i.interaction_type)}</span>
+            <span class="interaction-time">${new Date(i.happened_at).toLocaleString()}</span>
+          </div>
+          <div class="interaction-summary">${esc(i.summary)}</div>
+          ${i.notes ? `<div class="interaction-notes-text">${esc(i.notes)}</div>` : ''}
+        </div>
+        <button class="delete-icon" onclick="deleteInteractionPage(${i.id})" title="Delete">✕</button>
+      </div>
+    `).join('')}</div>`;
+  }
+
+  async function deleteInteractionPage(id) {
+    if (!confirm('Delete this interaction?')) return;
+    try {
+      await fetch(`/api/crm/interactions/${id}`, { method: 'DELETE' });
+      await loadInteractionsPage();
+    } catch (err) {
+      console.error('Failed to delete interaction:', err);
+    }
+  }
+
+  // Set up search listener
+  document.getElementById('interactionsSearch').addEventListener('input', () => filterInteractionsPage());
+</script>
