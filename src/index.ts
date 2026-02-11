@@ -33,6 +33,11 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("crm-web", {
 		description: "Start CRM web UI (or stop if already running)",
 		handler: async (args, ctx) => {
+			if (args?.trim() === "stop") {
+				const was = stopCrmServer();
+				ctx.ui.notify(was ? "CRM web server stopped" : "CRM web server is not running", "info");
+				return;
+			}
 			const port = parseInt(args || "4100") || 4100;
 			const running = stopCrmServer();
 			if (running && !args) {

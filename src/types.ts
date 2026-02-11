@@ -160,6 +160,7 @@ export interface CrmApi {
 	// Contacts
 	getContacts(search?: string, limit?: number): Contact[];
 	getContact(id: number): Contact | null;
+	getContactsByCompany(companyId: number): Contact[];
 	createContact(data: CreateContactData): Contact;
 	updateContact(id: number, data: UpdateContactData): Contact | null;
 	deleteContact(id: number): boolean;

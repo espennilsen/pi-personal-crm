@@ -115,47 +115,134 @@
   .rel-item > div[onclick]:hover .rel-name { color: var(--accent2); }
   .delete-icon { background: none; border: none; color: var(--fg3); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; opacity: 0.5; transition: all 0.15s; }
   .delete-icon:hover { opacity: 1; color: var(--red); background: rgba(248,113,113,0.1); }
+
+  /* ── Upcoming Cards ─────────────────────────────────── */
+  .upcoming-section { margin-bottom: 24px; }
+  .upcoming-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .upcoming-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.15s; }
+  .upcoming-card:hover { background: var(--bg3); border-color: var(--accent); }
+  .upcoming-icon { font-size: 28px; }
+  .upcoming-name { font-weight: 600; font-size: 14px; }
+  .upcoming-date { font-size: 12px; color: var(--fg2); }
+  .upcoming-days { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: auto; white-space: nowrap; }
+  .upcoming-days.soon { background: rgba(251,191,36,0.15); color: var(--yellow); }
+  .upcoming-days.today { background: rgba(74,222,128,0.15); color: var(--green); }
+  .upcoming-days.later { background: rgba(124,111,240,0.1); color: var(--accent2); }
+
+  /* ── Company Detail ─────────────────────────────────── */
+  .member-list { display: flex; flex-direction: column; gap: 8px; }
+  .member-item { background: var(--bg3); border: 1px solid var(--border); padding: 12px; border-radius: var(--radius); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; }
+  .member-item:hover { border-color: var(--accent); }
+  .member-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--bg); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .member-name { font-weight: 600; font-size: 13px; }
+  .member-meta { font-size: 12px; color: var(--fg2); }
 </style>
 </head>
 <body>
 
 <nav id="crmNav">
   <span class="nav-brand">CRM</span>
-  <a href="/" class="active">Contacts</a>
+  <a href="#contacts" data-page="contacts" class="active">Contacts</a>
+  <a href="#companies" data-page="companies">Companies</a>
+  <a href="#groups" data-page="groups">Groups</a>
+  <a href="#upcoming" data-page="upcoming">Upcoming</a>
   <div class="nav-spacer"></div>
 </nav>
 
 <div class="container">
-  <div class="toolbar">
-    <h1>📇 CRM</h1>
-    <input type="text" id="search" class="search-box" placeholder="Search contacts...">
-    <div style="flex: 1"></div>
-    <button class="btn" onclick="exportCsv()">⬇ Export</button>
-    <button class="btn" onclick="document.getElementById('csvFileInput').click()">⬆ Import</button>
-    <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="importCsv(event)">
-    <button class="btn btn-primary" onclick="showAddContactModal()">+ New Contact</button>
-  </div>
 
-  <div class="split-view">
-    <!-- Contact List -->
-    <div>
-      <div class="contact-list" id="contactList">
-        <div class="empty-state">
-          <p>No contacts yet</p>
-          <p style="margin-top: 8px; font-size: 12px;">Click "+ New Contact" to get started</p>
+  <!-- ══════ Contacts Page ══════ -->
+  <div class="page" id="pageContacts">
+    <div class="toolbar">
+      <h1>📇 Contacts</h1>
+      <input type="text" id="search" class="search-box" placeholder="Search contacts...">
+      <div style="flex: 1"></div>
+      <button class="btn" onclick="exportCsv()">⬇ Export</button>
+      <button class="btn" onclick="document.getElementById('csvFileInput').click()">⬆ Import</button>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="importCsv(event)">
+      <button class="btn btn-primary" onclick="showAddContactModal()">+ New Contact</button>
+    </div>
+
+    <div class="split-view">
+      <div>
+        <div class="contact-list" id="contactList">
+          <div class="empty-state">
+            <p>No contacts yet</p>
+            <p style="margin-top: 8px; font-size: 12px;">Click "+ New Contact" to get started</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="detail-panel" id="detailPanel">
+          <div class="empty-state">
+            <p>Select a contact to view details</p>
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Contact Detail -->
-    <div>
-      <div class="detail-panel" id="detailPanel">
-        <div class="empty-state">
-          <p>Select a contact to view details</p>
+  <!-- ══════ Companies Page ══════ -->
+  <div class="page" id="pageCompanies" style="display:none">
+    <div class="toolbar">
+      <h1>🏢 Companies</h1>
+      <input type="text" id="companySearch" class="search-box" placeholder="Search companies...">
+      <div style="flex: 1"></div>
+      <button class="btn btn-primary" onclick="showAddCompanyModal()">+ New Company</button>
+    </div>
+
+    <div class="split-view">
+      <div>
+        <div class="contact-list" id="companyList">
+          <div class="empty-state"><p>No companies yet</p></div>
+        </div>
+      </div>
+      <div>
+        <div class="detail-panel" id="companyDetailPanel">
+          <div class="empty-state"><p>Select a company to view details</p></div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- ══════ Groups Page ══════ -->
+  <div class="page" id="pageGroups" style="display:none">
+    <div class="toolbar">
+      <h1>📂 Groups</h1>
+      <div style="flex: 1"></div>
+      <button class="btn btn-primary" onclick="showCreateGroupModal()">+ New Group</button>
+    </div>
+
+    <div class="split-view">
+      <div>
+        <div class="contact-list" id="groupPageList">
+          <div class="empty-state"><p>No groups yet</p></div>
+        </div>
+      </div>
+      <div>
+        <div class="detail-panel" id="groupDetailPanel">
+          <div class="empty-state"><p>Select a group to view members</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ Upcoming Page ══════ -->
+  <div class="page" id="pageUpcoming" style="display:none">
+    <div class="toolbar">
+      <h1>📅 Upcoming</h1>
+      <div style="flex: 1"></div>
+      <label style="font-size: 13px; color: var(--fg2); display: flex; align-items: center; gap: 8px;">
+        Days ahead
+        <input type="number" id="upcomingDays" class="form-input" value="30" min="1" max="365" style="width: 80px;" onchange="loadUpcomingPage()">
+      </label>
+    </div>
+
+    <div id="upcomingContent">
+      <div class="empty-state"><p>Loading...</p></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Add/Edit Contact Modal -->
@@ -357,6 +444,67 @@
   </div>
 </div>
 
+<!-- Add/Edit Company Modal -->
+<div class="modal" id="companyModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title" id="companyModalTitle">New Company</h2>
+      <button class="modal-close" onclick="closeModal('companyModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="companyForm" onsubmit="saveCompany(event)">
+        <input type="hidden" id="editCompanyId">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input type="text" id="coName" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Industry</label>
+          <input type="text" id="coIndustry" class="form-input" placeholder="e.g. Technology, Finance">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Website</label>
+          <input type="url" id="coWebsite" class="form-input" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea id="coNotes" class="form-textarea"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('companyModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('companyForm').dispatchEvent(new Event('submit'))">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Group Modal -->
+<div class="modal" id="createGroupModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">New Group</h2>
+      <button class="modal-close" onclick="closeModal('createGroupModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="createGroupForm" onsubmit="saveNewGroup(event)">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input type="text" id="newGroupNameInput" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="newGroupDesc" class="form-textarea"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('createGroupModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('createGroupForm').dispatchEvent(new Event('submit'))">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let currentContactId = null;
   let allContacts = [];
@@ -371,6 +519,9 @@
   // ── Init ─────────────────────────────────────────────────────
 
   async function init() {
+    // Set up page routing
+    setupRouting();
+
     await loadContacts();
     await loadCompanies();
     
@@ -379,6 +530,45 @@
       const query = e.target.value.toLowerCase();
       filterContacts(query);
     });
+
+    // Company search handler
+    document.getElementById('companySearch').addEventListener('input', (e) => {
+      loadCompaniesPage(e.target.value.trim());
+    });
+
+    // Navigate to initial page from hash
+    const page = location.hash.slice(1) || 'contacts';
+    navigate(page);
+  }
+
+  // ── Routing ──────────────────────────────────────────────────
+
+  function setupRouting() {
+    window.addEventListener('hashchange', () => {
+      const page = location.hash.slice(1) || 'contacts';
+      navigate(page);
+    });
+  }
+
+  function navigate(page) {
+    const pages = ['contacts', 'companies', 'groups', 'upcoming'];
+    if (!pages.includes(page)) page = 'contacts';
+
+    // Toggle page visibility
+    pages.forEach(p => {
+      const el = document.getElementById('page' + p.charAt(0).toUpperCase() + p.slice(1));
+      if (el) el.style.display = p === page ? '' : 'none';
+    });
+
+    // Update navbar active state
+    document.querySelectorAll('#crmNav a[data-page]').forEach(a => {
+      a.classList.toggle('active', a.dataset.page === page);
+    });
+
+    // Load page data
+    if (page === 'companies') loadCompaniesPage();
+    if (page === 'groups') loadGroupsPage();
+    if (page === 'upcoming') loadUpcomingPage();
   }
 
   // ── Contacts ─────────────────────────────────────────────────
@@ -944,6 +1134,415 @@
       console.error('Failed to delete relationship:', err);
     }
   }
+
+  // ── Companies Page ─────────────────────────────────────────
+
+  let allCompaniesPage = [];
+  let currentCompanyId = null;
+
+  async function loadCompaniesPage(search) {
+    try {
+      const q = search ? `?q=${encodeURIComponent(search)}` : '';
+      const res = await fetch(`/api/crm/companies${q}`);
+      allCompaniesPage = await res.json();
+      renderCompanyList(allCompaniesPage);
+      if (allCompaniesPage.length > 0 && !currentCompanyId) {
+        selectCompany(allCompaniesPage[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load companies:', err);
+    }
+  }
+
+  function renderCompanyList(companies) {
+    const list = document.getElementById('companyList');
+    if (companies.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No companies found</p></div>';
+      return;
+    }
+    list.innerHTML = companies.map(c => `
+      <div class="contact-item ${c.id === currentCompanyId ? 'active' : ''}" onclick="selectCompany(${c.id})">
+        <div class="contact-name">🏢 ${esc(c.name)}</div>
+        <div class="contact-meta">
+          ${c.industry ? `<span>${esc(c.industry)}</span>` : ''}
+          ${c.website ? `<span>🔗 ${esc(c.website)}</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function selectCompany(id) {
+    currentCompanyId = id;
+    renderCompanyList(allCompaniesPage);
+    await loadCompanyDetail(id);
+  }
+
+  async function loadCompanyDetail(id) {
+    try {
+      const company = allCompaniesPage.find(c => c.id === id);
+      if (!company) return;
+
+      // Get contacts at this company
+      const res = await fetch(`/api/crm/contacts?company_id=${id}`);
+      const members = await res.json();
+
+      const panel = document.getElementById('companyDetailPanel');
+      panel.innerHTML = `
+        <div class="detail-header">
+          <div style="flex: 1;">
+            <div class="detail-name">🏢 ${esc(company.name)}</div>
+            ${company.industry ? `<div class="detail-company">${esc(company.industry)}</div>` : ''}
+          </div>
+          <div class="detail-actions">
+            <button class="btn btn-sm" onclick="showEditCompanyModal(${company.id})">✏️ Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteCompanyAction(${company.id})">🗑️</button>
+          </div>
+        </div>
+
+        ${company.website ? `
+        <div class="section">
+          <div class="detail-field"><span class="detail-field-icon">🔗</span> <a href="${esc(company.website)}" target="_blank" style="color: var(--accent2);">${esc(company.website)}</a></div>
+        </div>
+        ` : ''}
+
+        ${company.notes ? `
+        <div class="section">
+          <div class="section-title">Notes</div>
+          <div style="font-size: 13px; color: var(--fg2);">${esc(company.notes).replace(/\n/g, '<br>')}</div>
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <div class="section-title">People (${members.length})</div>
+          ${members.length > 0 ? `
+            <div class="member-list">
+              ${members.map(m => {
+                const initials = `${m.first_name.charAt(0)}${(m.last_name || '').charAt(0)}`.toUpperCase();
+                return `
+                  <div class="member-item" onclick="location.hash='contacts'; setTimeout(() => selectContact(${m.id}), 100);">
+                    <div class="member-avatar">${esc(initials)}</div>
+                    <div>
+                      <div class="member-name">${esc(m.first_name)} ${esc(m.last_name)}</div>
+                      <div class="member-meta">${m.email ? esc(m.email) : ''}</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<div class="empty-state" style="padding: 20px;"><p>No contacts at this company</p></div>'}
+        </div>
+      `;
+    } catch (err) {
+      console.error('Failed to load company detail:', err);
+    }
+  }
+
+  function showAddCompanyModal() {
+    document.getElementById('companyModalTitle').textContent = 'New Company';
+    document.getElementById('companyForm').reset();
+    document.getElementById('editCompanyId').value = '';
+    showModal('companyModal');
+  }
+
+  function showEditCompanyModal(id) {
+    const company = allCompaniesPage.find(c => c.id === id);
+    if (!company) return;
+    document.getElementById('companyModalTitle').textContent = 'Edit Company';
+    document.getElementById('editCompanyId').value = company.id;
+    document.getElementById('coName').value = company.name;
+    document.getElementById('coIndustry').value = company.industry || '';
+    document.getElementById('coWebsite').value = company.website || '';
+    document.getElementById('coNotes').value = company.notes || '';
+    showModal('companyModal');
+  }
+
+  async function saveCompany(e) {
+    e.preventDefault();
+    const id = document.getElementById('editCompanyId').value;
+    const data = {
+      name: document.getElementById('coName').value,
+      industry: document.getElementById('coIndustry').value || null,
+      website: document.getElementById('coWebsite').value || null,
+      notes: document.getElementById('coNotes').value || null,
+    };
+
+    try {
+      if (id) {
+        await fetch(`/api/crm/companies/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      } else {
+        const res = await fetch('/api/crm/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        const newCo = await res.json();
+        currentCompanyId = newCo.id;
+      }
+      closeModal('companyModal');
+      await loadCompaniesPage();
+      await loadCompanies(); // refresh datalist too
+      if (currentCompanyId) await selectCompany(currentCompanyId);
+    } catch (err) {
+      console.error('Failed to save company:', err);
+      alert('Failed to save company');
+    }
+  }
+
+  async function deleteCompanyAction(id) {
+    if (!confirm('Delete this company? Contacts will not be deleted.')) return;
+    try {
+      await fetch(`/api/crm/companies/${id}`, { method: 'DELETE' });
+      currentCompanyId = null;
+      await loadCompaniesPage();
+      await loadCompanies();
+      document.getElementById('companyDetailPanel').innerHTML = '<div class="empty-state"><p>Company deleted</p></div>';
+    } catch (err) {
+      console.error('Failed to delete company:', err);
+    }
+  }
+
+  // ── Groups Page ──────────────────────────────────────────────
+
+  let allGroupsPage = [];
+  let currentGroupPageId = null;
+
+  async function loadGroupsPage() {
+    try {
+      const res = await fetch('/api/crm/groups');
+      allGroupsPage = await res.json();
+      renderGroupPageList(allGroupsPage);
+      if (allGroupsPage.length > 0 && !currentGroupPageId) {
+        selectGroupPage(allGroupsPage[0].id);
+      } else if (allGroupsPage.length === 0) {
+        currentGroupPageId = null;
+        document.getElementById('groupDetailPanel').innerHTML = '<div class="empty-state"><p>Create a group to get started</p></div>';
+      }
+    } catch (err) {
+      console.error('Failed to load groups:', err);
+    }
+  }
+
+  function renderGroupPageList(groups) {
+    const list = document.getElementById('groupPageList');
+    if (groups.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No groups yet</p></div>';
+      return;
+    }
+    list.innerHTML = groups.map(g => `
+      <div class="contact-item ${g.id === currentGroupPageId ? 'active' : ''}" onclick="selectGroupPage(${g.id})">
+        <div class="contact-name">📂 ${esc(g.name)}</div>
+        ${g.description ? `<div class="contact-meta"><span>${esc(g.description)}</span></div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  async function selectGroupPage(id) {
+    currentGroupPageId = id;
+    renderGroupPageList(allGroupsPage);
+    await loadGroupPageDetail(id);
+  }
+
+  async function loadGroupPageDetail(id) {
+    try {
+      const group = allGroupsPage.find(g => g.id === id);
+      if (!group) return;
+
+      const res = await fetch(`/api/crm/groups/${id}/members`);
+      const members = await res.json();
+
+      const panel = document.getElementById('groupDetailPanel');
+      panel.innerHTML = `
+        <div class="detail-header">
+          <div style="flex: 1;">
+            <div class="detail-name">📂 ${esc(group.name)}</div>
+            ${group.description ? `<div class="detail-company">${esc(group.description)}</div>` : ''}
+          </div>
+          <div class="detail-actions">
+            <button class="btn btn-sm btn-danger" onclick="deleteGroupAction(${group.id})">🗑️ Delete Group</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Members (${members.length})</div>
+          ${members.length > 0 ? `
+            <div class="member-list">
+              ${members.map(m => {
+                const initials = `${m.first_name.charAt(0)}${(m.last_name || '').charAt(0)}`.toUpperCase();
+                return `
+                  <div class="member-item">
+                    <div class="member-avatar">${esc(initials)}</div>
+                    <div style="flex: 1; cursor: pointer;" onclick="location.hash='contacts'; setTimeout(() => selectContact(${m.id}), 100);">
+                      <div class="member-name">${esc(m.first_name)} ${esc(m.last_name)}</div>
+                      <div class="member-meta">${m.email ? esc(m.email) : ''}</div>
+                    </div>
+                    <button class="delete-icon" onclick="removeGroupPageMember(${id}, ${m.id})" title="Remove from group">✕</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<div class="empty-state" style="padding: 20px;"><p>No members yet</p><p style="font-size: 12px; margin-top: 4px;">Add contacts to this group from the contact detail view</p></div>'}
+        </div>
+      `;
+    } catch (err) {
+      console.error('Failed to load group detail:', err);
+    }
+  }
+
+  function showCreateGroupModal() {
+    document.getElementById('createGroupForm').reset();
+    showModal('createGroupModal');
+  }
+
+  async function saveNewGroup(e) {
+    e.preventDefault();
+    const data = {
+      name: document.getElementById('newGroupNameInput').value,
+      description: document.getElementById('newGroupDesc').value || null,
+    };
+
+    try {
+      const res = await fetch('/api/crm/groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      const group = await res.json();
+      currentGroupPageId = group.id;
+      closeModal('createGroupModal');
+      await loadGroupsPage();
+      await selectGroupPage(group.id);
+    } catch (err) {
+      console.error('Failed to create group:', err);
+      alert('Failed to create group');
+    }
+  }
+
+  async function deleteGroupAction(id) {
+    if (!confirm('Delete this group? Members will not be deleted.')) return;
+    try {
+      await fetch(`/api/crm/groups/${id}`, { method: 'DELETE' });
+      currentGroupPageId = null;
+      await loadGroupsPage();
+      document.getElementById('groupDetailPanel').innerHTML = '<div class="empty-state"><p>Group deleted</p></div>';
+    } catch (err) {
+      console.error('Failed to delete group:', err);
+    }
+  }
+
+  async function removeGroupPageMember(groupId, contactId) {
+    if (!confirm('Remove this contact from the group?')) return;
+    try {
+      await fetch(`/api/crm/groups/${groupId}/members/${contactId}`, { method: 'DELETE' });
+      await loadGroupPageDetail(groupId);
+    } catch (err) {
+      console.error('Failed to remove member:', err);
+    }
+  }
+
+  // ── Upcoming Page ────────────────────────────────────────────
+
+  async function loadUpcomingPage() {
+    const days = parseInt(document.getElementById('upcomingDays').value) || 30;
+    const content = document.getElementById('upcomingContent');
+
+    try {
+      const [remindersRes, contactsRes] = await Promise.all([
+        fetch('/api/crm/reminders'),
+        fetch('/api/crm/contacts?limit=5000')
+      ]);
+      const reminders = await remindersRes.json();
+      const contacts = await contactsRes.json();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + days);
+
+      // Collect upcoming items
+      const items = [];
+
+      // Birthdays from contacts
+      for (const c of contacts) {
+        if (!c.birthday) continue;
+        const next = getNextOccurrence(c.birthday, today);
+        if (next && next <= endDate) {
+          const daysAway = Math.round((next - today) / 86400000);
+          items.push({ type: 'birthday', icon: '🎂', name: `${c.first_name} ${c.last_name || ''}`, date: next, daysAway, contactId: c.id });
+        }
+      }
+
+      // Anniversaries from contacts
+      for (const c of contacts) {
+        if (!c.anniversary) continue;
+        const next = getNextOccurrence(c.anniversary, today);
+        if (next && next <= endDate) {
+          const daysAway = Math.round((next - today) / 86400000);
+          items.push({ type: 'anniversary', icon: '💍', name: `${c.first_name} ${c.last_name || ''}`, date: next, daysAway, contactId: c.id });
+        }
+      }
+
+      // Custom reminders
+      for (const r of reminders) {
+        const rDate = new Date(r.reminder_date + 'T00:00:00');
+        if (rDate >= today && rDate <= endDate) {
+          const daysAway = Math.round((rDate - today) / 86400000);
+          const contactName = r.first_name ? `${r.first_name} ${r.last_name || ''}` : 'Unknown';
+          const icon = r.reminder_type === 'birthday' ? '🎂' : r.reminder_type === 'anniversary' ? '💍' : '📌';
+          items.push({ type: r.reminder_type, icon, name: contactName, date: rDate, daysAway, contactId: r.contact_id, message: r.message });
+        }
+      }
+
+      // Sort by date
+      items.sort((a, b) => a.daysAway - b.daysAway);
+
+      if (items.length === 0) {
+        content.innerHTML = '<div class="empty-state" style="margin-top: 40px;"><p>Nothing upcoming in the next ' + days + ' days</p></div>';
+        return;
+      }
+
+      // Group by time period
+      const todayItems = items.filter(i => i.daysAway === 0);
+      const thisWeek = items.filter(i => i.daysAway > 0 && i.daysAway <= 7);
+      const later = items.filter(i => i.daysAway > 7);
+
+      let html = '';
+
+      if (todayItems.length > 0) {
+        html += `<div class="upcoming-section"><div class="section-title" style="margin-bottom: 12px;">🎉 Today</div><div class="upcoming-grid">${todayItems.map(i => renderUpcomingCard(i, 'today')).join('')}</div></div>`;
+      }
+      if (thisWeek.length > 0) {
+        html += `<div class="upcoming-section"><div class="section-title" style="margin-bottom: 12px;">📅 This Week</div><div class="upcoming-grid">${thisWeek.map(i => renderUpcomingCard(i, 'soon')).join('')}</div></div>`;
+      }
+      if (later.length > 0) {
+        html += `<div class="upcoming-section"><div class="section-title" style="margin-bottom: 12px;">🗓️ Later</div><div class="upcoming-grid">${later.map(i => renderUpcomingCard(i, 'later')).join('')}</div></div>`;
+      }
+
+      content.innerHTML = html;
+    } catch (err) {
+      console.error('Failed to load upcoming:', err);
+      content.innerHTML = '<div class="empty-state"><p>Failed to load upcoming events</p></div>';
+    }
+  }
+
+  function renderUpcomingCard(item, urgency) {
+    const dateStr = item.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const daysLabel = item.daysAway === 0 ? 'Today' : item.daysAway === 1 ? 'Tomorrow' : `In ${item.daysAway} days`;
+    return `
+      <div class="upcoming-card" onclick="location.hash='contacts'; setTimeout(() => selectContact(${item.contactId}), 100);">
+        <div class="upcoming-icon">${item.icon}</div>
+        <div>
+          <div class="upcoming-name">${esc(item.name)}</div>
+          <div class="upcoming-date">${esc(dateStr)}${item.message ? ' — ' + esc(item.message) : ''}</div>
+        </div>
+        <div class="upcoming-days ${urgency}">${daysLabel}</div>
+      </div>
+    `;
+  }
+
+  function getNextOccurrence(dateStr, today) {
+    try {
+      const parts = dateStr.split('-');
+      const month = parseInt(parts[1]) - 1;
+      const day = parseInt(parts[2]);
+      let next = new Date(today.getFullYear(), month, day);
+      if (next < today) next = new Date(today.getFullYear() + 1, month, day);
+      return next;
+    } catch { return null; }
+  }
+
+  // ── Modal Helpers ────────────────────────────────────────────
 
   function showModal(id) {
     document.getElementById(id).classList.add('show');

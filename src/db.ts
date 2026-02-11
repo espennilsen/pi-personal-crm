@@ -33,6 +33,7 @@ let stmts: {
 	// Contacts
 	getContacts: any;
 	getContactById: any;
+	getContactsByCompany: any;
 	searchContacts: any;
 	insertContact: any;
 	updateContact: any;
@@ -241,6 +242,16 @@ export function initDb(dbPath: string): void {
 				WHERE c.id = ?
 			`),
 
+			getContactsByCompany: db.prepare(`
+				SELECT 
+					c.*,
+					co.name as company_name
+				FROM crm_contacts c
+				LEFT JOIN crm_companies co ON c.company_id = co.id
+				WHERE c.company_id = ?
+				ORDER BY c.first_name, c.last_name
+			`),
+
 			searchContacts: db.prepare(`
 				SELECT 
 					c.*,
@@ -333,14 +344,18 @@ export function initDb(dbPath: string): void {
 
 			// Reminders
 			getReminders: db.prepare(`
-				SELECT * FROM crm_reminders
-				ORDER BY reminder_date
+				SELECT r.*, c.first_name, c.last_name
+				FROM crm_reminders r
+				JOIN crm_contacts c ON r.contact_id = c.id
+				ORDER BY r.reminder_date
 			`),
 
 			getRemindersByContact: db.prepare(`
-				SELECT * FROM crm_reminders
-				WHERE contact_id = ?
-				ORDER BY reminder_date
+				SELECT r.*, c.first_name, c.last_name
+				FROM crm_reminders r
+				JOIN crm_contacts c ON r.contact_id = c.id
+				WHERE r.contact_id = ?
+				ORDER BY r.reminder_date
 			`),
 
 			getUpcomingReminders: db.prepare(`
@@ -599,6 +614,10 @@ export const crmApi: CrmApi = {
 
 	getContact(id: number): Contact | null {
 		return stmts.getContactById.get(id) ?? null;
+	},
+
+	getContactsByCompany(companyId: number): Contact[] {
+		return stmts.getContactsByCompany.all(companyId);
 	},
 
 	createContact(data: CreateContactData): Contact {

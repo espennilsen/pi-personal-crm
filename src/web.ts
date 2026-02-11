@@ -37,6 +37,11 @@ export function startCrmServer(port: number = 4100): string {
 
 			// ── Contacts ────────────────────────────────────────
 			if (method === "GET" && url.pathname === "/api/crm/contacts") {
+				const companyId = url.searchParams.get("company_id");
+				if (companyId) {
+					json(res, 200, crmApi.getContactsByCompany(parseInt(companyId)));
+					return;
+				}
 				const search = url.searchParams.get("q") ?? undefined;
 				const limit = parseInt(url.searchParams.get("limit") ?? "1000");
 				json(res, 200, crmApi.getContacts(search, limit));
