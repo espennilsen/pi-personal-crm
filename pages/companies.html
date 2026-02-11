@@ -72,7 +72,7 @@
   // ── Extension Fields (read-only) ──────────────────────────────
 
   function renderCompanyExtensionFields(fields) {
-    if (!fields || fields.length === 0) return '';
+    if (!Array.isArray(fields) || fields.length === 0) return '';
 
     // Group by source
     const bySource = {};
@@ -212,7 +212,7 @@
           ` : '<div class="empty-state" style="padding: 20px;"><p>No contacts at this company</p></div>'}
         </div>
 
-        ${renderCompanyExtensionFields(extensionFields)}
+        ${renderCompanyExtensionFields(extensionFields || [])}
       `;
     } catch (err) {
       console.error('Failed to load company detail:', err);
