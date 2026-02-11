@@ -140,6 +140,7 @@ export async function handleCrmRequest(
 					reminders: crmApi.getReminders(id),
 					relationships: crmApi.getRelationships(id),
 					groups: crmApi.getContactGroups(id),
+					extensionFields: crmApi.getExtensionFields(id),
 				});
 				return;
 			}
@@ -322,6 +323,38 @@ export async function handleCrmRequest(
 		const groupMatch = urlPath.match(/^\/api\/crm\/groups\/(\d+)$/);
 		if (groupMatch && method === "DELETE") {
 			json(res, 200, { ok: crmApi.deleteGroup(parseInt(groupMatch[1])) });
+			return;
+		}
+
+		// ── Extension Fields ────────────────────────────────
+		// GET /api/crm/contacts/:id/extension-fields[?source=...]
+		const extFieldsMatch = urlPath.match(/^\/api\/crm\/contacts\/(\d+)\/extension-fields$/);
+		if (extFieldsMatch && method === "GET") {
+			const contactId = parseInt(extFieldsMatch[1]);
+			const source = url.searchParams.get("source");
+			json(res, 200, source
+				? crmApi.getExtensionFieldsBySource(contactId, source)
+				: crmApi.getExtensionFields(contactId));
+			return;
+		}
+
+		// PUT /api/crm/contacts/:id/extension-fields — upsert a field
+		if (extFieldsMatch && method === "PUT") {
+			const contactId = parseInt(extFieldsMatch[1]);
+			const body = JSON.parse(await readBody(req));
+			if (!body.source || !body.field_name || body.field_value == null) {
+				json(res, 400, { error: "source, field_name, and field_value are required" }); return;
+			}
+			json(res, 200, crmApi.setExtensionField({ ...body, contact_id: contactId }));
+			return;
+		}
+
+		// DELETE /api/crm/contacts/:id/extension-fields?source=...
+		if (extFieldsMatch && method === "DELETE") {
+			const contactId = parseInt(extFieldsMatch[1]);
+			const source = url.searchParams.get("source");
+			if (!source) { json(res, 400, { error: "source query param is required" }); return; }
+			json(res, 200, { deleted: crmApi.deleteExtensionFields(contactId, source) });
 			return;
 		}
 

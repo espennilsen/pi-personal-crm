@@ -141,6 +141,32 @@ export interface CreateGroupData {
 	description?: string;
 }
 
+// ── Extension Fields ────────────────────────────────────────────
+
+/**
+ * Third-party fields added by external extensions (e.g. LinkedIn scraper).
+ * Read-only in the CRM UI — extensions write via the API.
+ */
+export interface ExtensionField {
+	id: number;
+	contact_id: number;
+	source: string; // Extension identifier (e.g. "linkedin", "clearbit")
+	field_name: string; // Field key (e.g. "headline", "profile_url")
+	field_value: string; // Field value
+	label?: string; // Display label (e.g. "LinkedIn Headline")
+	field_type: string; // "text" | "url" | "date" | "number" | "json"
+	updated_at: string;
+}
+
+export interface SetExtensionFieldData {
+	contact_id: number;
+	source: string;
+	field_name: string;
+	field_value: string;
+	label?: string;
+	field_type?: string; // Defaults to "text"
+}
+
 // ── Custom Field Definition ─────────────────────────────────────
 
 export interface CustomFieldDef {
@@ -200,6 +226,12 @@ export interface CrmApi {
 	getContactGroups(contactId: number): Group[];
 	addGroupMember(groupId: number, contactId: number): boolean;
 	removeGroupMember(groupId: number, contactId: number): boolean;
+
+	// Extension fields (third-party, read-only in UI)
+	getExtensionFields(contactId: number): ExtensionField[];
+	getExtensionFieldsBySource(contactId: number, source: string): ExtensionField[];
+	setExtensionField(data: SetExtensionFieldData): ExtensionField;
+	deleteExtensionFields(contactId: number, source: string): number;
 
 	// Search
 	searchContacts(query: string, limit?: number): Contact[];
