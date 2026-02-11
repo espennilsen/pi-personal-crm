@@ -112,6 +112,9 @@
   .rel-item, .rem-item { background: var(--bg3); border: 1px solid var(--border); padding: 10px 12px; border-radius: var(--radius); font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
   .rel-type, .rem-type { font-size: 11px; color: var(--fg3); text-transform: uppercase; }
   .rel-name { font-weight: 600; }
+  .rel-item > div[onclick]:hover .rel-name { color: var(--accent2); }
+  .delete-icon { background: none; border: none; color: var(--fg3); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; opacity: 0.5; transition: all 0.15s; }
+  .delete-icon:hover { opacity: 1; color: var(--red); background: rgba(248,113,113,0.1); }
 </style>
 </head>
 <body>
@@ -344,7 +347,7 @@
   }
 
   function renderContactDetail(data) {
-    const { contact, interactions, reminders, relationships } = data;
+    const { contact, interactions, reminders, relationships, groups } = data;
     
     const initials = `${contact.first_name.charAt(0)}${(contact.last_name || '').charAt(0)}`.toUpperCase();
     
@@ -390,6 +393,7 @@
                 <div class="rem-type">${esc(r.reminder_type)}</div>
                 <div>${esc(r.reminder_date)}${r.message ? ` — ${esc(r.message)}` : ''}</div>
               </div>
+              <button class="delete-icon" onclick="deleteReminder(${r.id})" title="Delete reminder">✕</button>
             </div>
           `).join('')}
         </div>
@@ -402,12 +406,22 @@
         <div class="rel-list">
           ${relationships.map(r => `
             <div class="rel-item">
-              <div>
+              <div onclick="selectContact(${r.related_contact_id})" style="cursor: pointer;">
                 <div class="rel-type">${esc(r.relationship_type)}</div>
                 <div class="rel-name">${esc(r.first_name)} ${esc(r.last_name)}</div>
               </div>
+              <button class="delete-icon" onclick="deleteRelationship(${r.id})" title="Delete relationship">✕</button>
             </div>
           `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${groups && groups.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Groups</div>
+        <div class="contact-tags" style="gap: 6px;">
+          ${groups.map(g => `<span class="tag" style="font-size: 12px; padding: 4px 8px;">📂 ${esc(g.name)}</span>`).join('')}
         </div>
       </div>
       ` : ''}
@@ -420,7 +434,8 @@
               <div class="timeline-item">
                 <div class="timeline-dot ${esc(i.interaction_type)}"></div>
                 <div class="timeline-date">${new Date(i.happened_at).toLocaleString()}</div>
-                <div class="timeline-content">
+                <div class="timeline-content" style="position: relative;">
+                  <button class="delete-icon" onclick="deleteInteraction(${i.id})" title="Delete interaction" style="position: absolute; top: 8px; right: 8px;">✕</button>
                   <div class="timeline-type ${esc(i.interaction_type)}">${esc(i.interaction_type)}</div>
                   <div class="timeline-summary">${esc(i.summary)}</div>
                   ${i.notes ? `<div class="timeline-notes">${esc(i.notes)}</div>` : ''}
@@ -559,6 +574,36 @@
     } catch (err) {
       console.error('Failed to save interaction:', err);
       alert('Failed to save interaction');
+    }
+  }
+
+  async function deleteInteraction(id) {
+    if (!confirm('Delete this interaction?')) return;
+    try {
+      await fetch(`/api/crm/interactions/${id}`, { method: 'DELETE' });
+      await loadContactDetail(currentContactId);
+    } catch (err) {
+      console.error('Failed to delete interaction:', err);
+    }
+  }
+
+  async function deleteReminder(id) {
+    if (!confirm('Delete this reminder?')) return;
+    try {
+      await fetch(`/api/crm/reminders/${id}`, { method: 'DELETE' });
+      await loadContactDetail(currentContactId);
+    } catch (err) {
+      console.error('Failed to delete reminder:', err);
+    }
+  }
+
+  async function deleteRelationship(id) {
+    if (!confirm('Delete this relationship?')) return;
+    try {
+      await fetch(`/api/crm/relationships/${id}`, { method: 'DELETE' });
+      await loadContactDetail(currentContactId);
+    } catch (err) {
+      console.error('Failed to delete relationship:', err);
     }
   }
 

@@ -76,12 +76,14 @@ function doRegister(server: HostServer): void {
 		const interactions = crmApi.getInteractions(id);
 		const reminders = crmApi.getReminders(id);
 		const relationships = crmApi.getRelationships(id);
+		const groups = crmApi.getContactGroups(id);
 
 		jsonResponse(res, 200, {
 			contact,
 			interactions,
 			reminders,
 			relationships,
+			groups,
 		});
 	});
 
@@ -207,6 +209,36 @@ function doRegister(server: HostServer): void {
 		const id = parseInt(match[1]);
 		const ok = crmApi.deleteCompany(id);
 		jsonResponse(res, 200, { ok });
+	});
+
+	// PATCH /api/crm/companies/:id — update company
+	server.addWebRoute("PATCH", "/api/crm/companies/:id", async (req, res, url) => {
+		try {
+			const match = url.pathname.match(/\/api\/crm\/companies\/(\d+)$/);
+			if (!match) {
+				jsonResponse(res, 400, { error: "Invalid company ID" });
+				return;
+			}
+
+			const id = parseInt(match[1]);
+			const body = JSON.parse(await readBody(req));
+
+			const company = crmApi.updateCompany(id, {
+				name: body.name,
+				website: body.website,
+				industry: body.industry,
+				notes: body.notes,
+			});
+
+			if (!company) {
+				jsonResponse(res, 404, { error: "Company not found" });
+				return;
+			}
+
+			jsonResponse(res, 200, company);
+		} catch (err: any) {
+			jsonResponse(res, 400, { error: err.message });
+		}
 	});
 
 	// POST /api/crm/companies — create company

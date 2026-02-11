@@ -38,14 +38,19 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 				"- \"Add Sarah's birthday\" → crm.add_reminder\n\n" +
 				"**Actions:**\n" +
 				"- search — Full-text search across contacts and companies\n" +
-				"- contact — Get full contact details with interactions, relationships, reminders\n" +
+				"- contact — Get full contact details with interactions, relationships, reminders, groups\n" +
 				"- add_contact — Create a new contact\n" +
 				"- update_contact — Update contact fields\n" +
+				"- delete_contact — Delete a contact\n" +
 				"- log_interaction — Log a call, meeting, email, note, or gift\n" +
 				"- add_reminder — Set a birthday, anniversary, or custom reminder\n" +
 				"- upcoming — Show upcoming birthdays and reminders\n" +
+				"- add_relationship — Link two contacts (spouse, colleague, etc.)\n" +
 				"- list_companies — List all companies\n" +
-				"- add_company — Create a new company\n\n" +
+				"- add_company — Create a new company\n" +
+				"- list_groups — List all groups\n" +
+				"- add_to_group — Add a contact to a group (creates group if needed)\n" +
+				"- remove_from_group — Remove a contact from a group\n\n" +
 				"**Interaction types:** call, meeting, email, note, gift, message\n\n" +
 				"When creating/updating contacts, capture: name, email, phone, company, birthday, tags, notes.",
 		};
@@ -62,7 +67,7 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 		description: "Search and manage contacts, companies, and interactions in the personal CRM.",
 		parameters: Type.Object({
 			action: StringEnum(
-				["search", "contact", "add_contact", "update_contact", "log_interaction", "add_reminder", "upcoming", "list_companies", "add_company"] as const,
+				["search", "contact", "add_contact", "update_contact", "log_interaction", "add_reminder", "upcoming", "list_companies", "add_company", "add_relationship", "list_groups", "add_to_group", "remove_from_group", "delete_contact"] as const,
 				{ description: "CRM action to perform" },
 			),
 
@@ -110,6 +115,15 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 			// Company
 			industry: Type.Optional(Type.String({ description: "Company industry" })),
 			website: Type.Optional(Type.String({ description: "Company website URL" })),
+
+			// Relationship
+			related_contact_id: Type.Optional(Type.Number({ description: "Related contact ID (for add_relationship)" })),
+			relationship_type: Type.Optional(Type.String({ description: "Relationship type: spouse, child, parent, colleague, friend, etc." })),
+
+			// Group
+			group_id: Type.Optional(Type.Number({ description: "Group ID (for add_to_group, remove_from_group)" })),
+			group_name: Type.Optional(Type.String({ description: "Group name (for list_groups with new group creation, or add_to_group by name)" })),
+			group_description: Type.Optional(Type.String({ description: "Group description (when creating a new group)" })),
 		}),
 
 		async execute(_toolCallId: string, params: any, _signal: any, _onUpdate: any, _ctx: any) {
@@ -224,6 +238,17 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 						for (const r of reminders) {
 							card += `- ${r.reminder_type}: ${r.reminder_date}`;
 							if (r.message) card += ` — ${r.message}`;
+							card += `\n`;
+						}
+					}
+
+					// Groups
+					const groups = crm.getContactGroups(contact.id);
+					if (groups.length > 0) {
+						card += `\n**Groups:**\n`;
+						for (const g of groups) {
+							card += `- ${g.name}`;
+							if (g.description) card += ` — ${g.description}`;
 							card += `\n`;
 						}
 					}
@@ -408,6 +433,146 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 					});
 
 					return text(`✅ Created company: ${company.name} (ID: ${company.id})`);
+				}
+
+				// ── delete_contact ──────────────────────────────────
+
+				if (params.action === "delete_contact") {
+					if (!params.contact_id) {
+						return text("❌ contact_id is required");
+					}
+
+					const contact = crm.getContact(params.contact_id);
+					if (!contact) {
+						return text(`❌ Contact ${params.contact_id} not found`);
+					}
+
+					const name = `${contact.first_name} ${contact.last_name || ""}`.trim();
+					crm.deleteContact(params.contact_id);
+					return text(`✅ Deleted contact: ${name} (ID: ${params.contact_id})`);
+				}
+
+				// ── add_relationship ────────────────────────────────
+
+				if (params.action === "add_relationship") {
+					if (!params.contact_id) {
+						return text("❌ contact_id is required");
+					}
+					if (!params.related_contact_id) {
+						return text("❌ related_contact_id is required");
+					}
+					if (!params.relationship_type) {
+						return text("❌ relationship_type is required (e.g. spouse, colleague, friend, parent, child)");
+					}
+
+					const relationship = crm.createRelationship({
+						contact_id: params.contact_id,
+						related_contact_id: params.related_contact_id,
+						relationship_type: params.relationship_type,
+						notes: params.notes,
+					});
+
+					const c1 = crm.getContact(params.contact_id);
+					const c2 = crm.getContact(params.related_contact_id);
+					const name1 = c1 ? `${c1.first_name} ${c1.last_name || ""}`.trim() : `ID ${params.contact_id}`;
+					const name2 = c2 ? `${c2.first_name} ${c2.last_name || ""}`.trim() : `ID ${params.related_contact_id}`;
+
+					return text(`✅ Added relationship: ${name1} ↔ ${name2} (${params.relationship_type})`);
+				}
+
+				// ── list_groups ─────────────────────────────────────
+
+				if (params.action === "list_groups") {
+					const groups = crm.getGroups();
+
+					if (groups.length === 0) {
+						return text("📂 No groups in CRM");
+					}
+
+					let result = `📂 Groups (${groups.length}):\n\n`;
+					for (const g of groups) {
+						const members = crm.getGroupMembers(g.id);
+						const desc = g.description ? ` — ${g.description}` : "";
+						result += `- ${g.name}${desc} (${members.length} members, ID: ${g.id})\n`;
+					}
+
+					return text(result.trim());
+				}
+
+				// ── add_to_group ────────────────────────────────────
+
+				if (params.action === "add_to_group") {
+					if (!params.contact_id) {
+						return text("❌ contact_id is required");
+					}
+
+					let groupId = params.group_id;
+
+					// Resolve group by name, create if needed
+					if (!groupId && params.group_name) {
+						const groups = crm.getGroups();
+						const existing = groups.find(g => g.name.toLowerCase() === params.group_name.toLowerCase());
+						if (existing) {
+							groupId = existing.id;
+						} else {
+							const newGroup = crm.createGroup({
+								name: params.group_name,
+								description: params.group_description,
+							});
+							groupId = newGroup.id;
+						}
+					}
+
+					if (!groupId) {
+						return text("❌ group_id or group_name is required");
+					}
+
+					crm.addGroupMember(groupId, params.contact_id);
+
+					const contact = crm.getContact(params.contact_id);
+					const contactName = contact ? `${contact.first_name} ${contact.last_name || ""}`.trim() : `ID ${params.contact_id}`;
+					const groups = crm.getGroups();
+					const group = groups.find(g => g.id === groupId);
+					const groupName = group ? group.name : `ID ${groupId}`;
+
+					return text(`✅ Added ${contactName} to group "${groupName}"`);
+				}
+
+				// ── remove_from_group ───────────────────────────────
+
+				if (params.action === "remove_from_group") {
+					if (!params.contact_id) {
+						return text("❌ contact_id is required");
+					}
+
+					let groupId = params.group_id;
+
+					// Resolve group by name
+					if (!groupId && params.group_name) {
+						const groups = crm.getGroups();
+						const existing = groups.find(g => g.name.toLowerCase() === params.group_name.toLowerCase());
+						if (existing) {
+							groupId = existing.id;
+						}
+					}
+
+					if (!groupId) {
+						return text("❌ group_id or group_name is required");
+					}
+
+					const ok = crm.removeGroupMember(groupId, params.contact_id);
+
+					if (!ok) {
+						return text("❌ Contact is not in that group");
+					}
+
+					const contact = crm.getContact(params.contact_id);
+					const contactName = contact ? `${contact.first_name} ${contact.last_name || ""}`.trim() : `ID ${params.contact_id}`;
+					const groups = crm.getGroups();
+					const group = groups.find(g => g.id === groupId);
+					const groupName = group ? group.name : `ID ${groupId}`;
+
+					return text(`✅ Removed ${contactName} from group "${groupName}"`);
 				}
 
 				return text(`❌ Unknown action: ${params.action}`);
