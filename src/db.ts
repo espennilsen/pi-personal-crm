@@ -960,7 +960,7 @@ export const crmApi: CrmApi = {
 			data.field_name,
 			data.field_value,
 			data.label ?? null,
-			data.field_type ?? "text",
+			ft,
 		);
 		// Always look up by unique key — lastInsertRowid is unreliable on upsert-update
 		const fields = this.getExtensionFieldsBySource(data.contact_id, data.source);
