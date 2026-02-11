@@ -50,27 +50,31 @@ function loadCrmHtml(): string {
 	return shellHtml.replace("<!-- PAGES -->", pagesHtml);
 }
 
-// ── Core Request Handler ────────────────────────────────────────
+// ── Page Handler ────────────────────────────────────────────────
 
 /**
- * Core CRM request handler. Works both as a pi-webserver mount handler
- * and as the handler for the standalone server.
+ * Serves the CRM HTML page. Mounted at /crm via web:mount.
  *
- * @param req    HTTP request
- * @param res    HTTP response
- * @param urlPath  Request path with mount prefix stripped (e.g. "/api/crm/contacts")
+ * Also forwards /api/crm/* subpaths to the API handler — this handles
+ * relative fetch URLs from the HTML page (e.g. `fetch("api/crm/contacts")`)
+ * which resolve to /crm/api/crm/... when the page is at /crm/.
  */
-export async function handleCrmRequest(
+export async function handleCrmPage(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
 	urlPath: string,
 ): Promise<void> {
-	// Parse query params from the full request URL
-	const url = new URL(req.url ?? "/", "http://localhost");
 	const method = req.method ?? "GET";
 
+	// Forward API subpaths (from relative URLs in the HTML page)
+	const apiPrefix = "/api/crm";
+	if (urlPath.startsWith(apiPrefix + "/") || urlPath === apiPrefix) {
+		const subPath = urlPath.slice(apiPrefix.length) || "/";
+		return handleCrmApi(req, res, subPath);
+	}
+
 	try {
-		// ── Trailing-slash redirect (needed when mounted at a prefix) ──
+		// Trailing-slash redirect (needed when mounted at a prefix)
 		if (urlPath === "/" && method === "GET") {
 			const rawUrl = req.url ?? "/";
 			const qIdx = rawUrl.indexOf("?");
@@ -83,7 +87,6 @@ export async function handleCrmRequest(
 			}
 		}
 
-		// ── Main Page ───────────────────────────────────────
 		if (method === "GET" && urlPath === "/") {
 			const CRM_HTML = loadCrmHtml();
 			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -91,8 +94,33 @@ export async function handleCrmRequest(
 			return;
 		}
 
+		json(res, 404, { error: "Not found" });
+	} catch (err: any) {
+		json(res, 500, { error: err.message });
+	}
+}
+
+// ── API Handler ─────────────────────────────────────────────────
+
+/**
+ * Handles CRM REST API requests. Paths are relative to the API mount
+ * point (e.g. "/contacts", "/companies/1").
+ *
+ * When mounted via pi-webserver's mountApi at "/crm", the webserver
+ * strips "/api/crm" and passes the remainder. The standalone server
+ * strips the prefix before calling this handler.
+ */
+export async function handleCrmApi(
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	urlPath: string,
+): Promise<void> {
+	const url = new URL(req.url ?? "/", "http://localhost");
+	const method = req.method ?? "GET";
+
+	try {
 		// ── Contacts ────────────────────────────────────────
-		if (method === "GET" && urlPath === "/api/crm/contacts") {
+		if (method === "GET" && urlPath === "/contacts") {
 			const companyId = url.searchParams.get("company_id");
 			if (companyId) {
 				json(res, 200, crmApi.getContactsByCompany(parseInt(companyId)));
@@ -104,7 +132,7 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		if (method === "GET" && urlPath === "/api/crm/contacts/export.csv") {
+		if (method === "GET" && urlPath === "/contacts/export.csv") {
 			const csv = crmApi.exportContactsCsv();
 			res.writeHead(200, {
 				"Content-Type": "text/csv; charset=utf-8",
@@ -114,21 +142,21 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/contacts/import") {
+		if (method === "POST" && urlPath === "/contacts/import") {
 			const csv = await readBody(req);
 			if (!csv.trim()) { json(res, 400, { error: "Empty CSV body" }); return; }
 			json(res, 200, crmApi.importContactsCsv(csv));
 			return;
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/contacts/check-duplicates") {
+		if (method === "POST" && urlPath === "/contacts/check-duplicates") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.first_name) { json(res, 400, { error: "first_name is required" }); return; }
 			json(res, 200, { duplicates: crmApi.findDuplicates(body) });
 			return;
 		}
 
-		const contactMatch = urlPath.match(/^\/api\/crm\/contacts\/(\d+)$/);
+		const contactMatch = urlPath.match(/^\/contacts\/(\d+)$/);
 		if (contactMatch) {
 			const id = parseInt(contactMatch[1]);
 
@@ -166,7 +194,7 @@ export async function handleCrmRequest(
 			}
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/contacts") {
+		if (method === "POST" && urlPath === "/contacts") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.first_name) { json(res, 400, { error: "first_name is required" }); return; }
 			let company_id = body.company_id;
@@ -180,13 +208,13 @@ export async function handleCrmRequest(
 		}
 
 		// ── Companies ───────────────────────────────────────
-		if (method === "GET" && urlPath === "/api/crm/companies") {
+		if (method === "GET" && urlPath === "/companies") {
 			const search = url.searchParams.get("q") ?? undefined;
 			json(res, 200, crmApi.getCompanies(search));
 			return;
 		}
 
-		const companyMatch = urlPath.match(/^\/api\/crm\/companies\/(\d+)$/);
+		const companyMatch = urlPath.match(/^\/companies\/(\d+)$/);
 		if (companyMatch) {
 			const id = parseInt(companyMatch[1]);
 			if (method === "PATCH") {
@@ -203,7 +231,7 @@ export async function handleCrmRequest(
 			if (method === "DELETE") { json(res, 200, { ok: crmApi.deleteCompany(id) }); return; }
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/companies") {
+		if (method === "POST" && urlPath === "/companies") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.name) { json(res, 400, { error: "name is required" }); return; }
 			try { body.website = sanitizeUrl(body.website); }
@@ -213,7 +241,7 @@ export async function handleCrmRequest(
 		}
 
 		// ── Interactions ────────────────────────────────────
-		if (method === "GET" && urlPath === "/api/crm/interactions") {
+		if (method === "GET" && urlPath === "/interactions") {
 			const contactId = url.searchParams.get("contact_id");
 			if (contactId) {
 				json(res, 200, crmApi.getInteractions(parseInt(contactId)));
@@ -223,7 +251,7 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/interactions") {
+		if (method === "POST" && urlPath === "/interactions") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.contact_id || !body.interaction_type || !body.summary) {
 				json(res, 400, { error: "contact_id, interaction_type, and summary are required" }); return;
@@ -232,26 +260,26 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		const interactionMatch = urlPath.match(/^\/api\/crm\/interactions\/(\d+)$/);
+		const interactionMatch = urlPath.match(/^\/interactions\/(\d+)$/);
 		if (interactionMatch && method === "DELETE") {
 			json(res, 200, { ok: crmApi.deleteInteraction(parseInt(interactionMatch[1])) });
 			return;
 		}
 
 		// ── Reminders ───────────────────────────────────────
-		if (method === "GET" && urlPath === "/api/crm/reminders/upcoming") {
+		if (method === "GET" && urlPath === "/reminders/upcoming") {
 			const days = parseInt(url.searchParams.get("days") ?? "30");
 			json(res, 200, crmApi.getUpcomingReminders(days));
 			return;
 		}
 
-		if (method === "GET" && urlPath === "/api/crm/reminders") {
+		if (method === "GET" && urlPath === "/reminders") {
 			const contactId = url.searchParams.get("contact_id");
 			json(res, 200, contactId ? crmApi.getReminders(parseInt(contactId)) : crmApi.getAllReminders());
 			return;
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/reminders") {
+		if (method === "POST" && urlPath === "/reminders") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.contact_id || !body.reminder_type || !body.reminder_date) {
 				json(res, 400, { error: "contact_id, reminder_type, and reminder_date are required" }); return;
@@ -260,21 +288,21 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		const reminderMatch = urlPath.match(/^\/api\/crm\/reminders\/(\d+)$/);
+		const reminderMatch = urlPath.match(/^\/reminders\/(\d+)$/);
 		if (reminderMatch && method === "DELETE") {
 			json(res, 200, { ok: crmApi.deleteReminder(parseInt(reminderMatch[1])) });
 			return;
 		}
 
 		// ── Relationships ───────────────────────────────────
-		if (method === "GET" && urlPath === "/api/crm/relationships") {
+		if (method === "GET" && urlPath === "/relationships") {
 			const contactId = url.searchParams.get("contact_id");
 			if (!contactId) { json(res, 400, { error: "contact_id is required" }); return; }
 			json(res, 200, crmApi.getRelationships(parseInt(contactId)));
 			return;
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/relationships") {
+		if (method === "POST" && urlPath === "/relationships") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.contact_id || !body.related_contact_id || !body.relationship_type) {
 				json(res, 400, { error: "contact_id, related_contact_id, and relationship_type are required" }); return;
@@ -283,26 +311,26 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		const relMatch = urlPath.match(/^\/api\/crm\/relationships\/(\d+)$/);
+		const relMatch = urlPath.match(/^\/relationships\/(\d+)$/);
 		if (relMatch && method === "DELETE") {
 			json(res, 200, { ok: crmApi.deleteRelationship(parseInt(relMatch[1])) });
 			return;
 		}
 
 		// ── Groups ──────────────────────────────────────────
-		if (method === "GET" && urlPath === "/api/crm/groups") {
+		if (method === "GET" && urlPath === "/groups") {
 			json(res, 200, crmApi.getGroups());
 			return;
 		}
 
-		if (method === "POST" && urlPath === "/api/crm/groups") {
+		if (method === "POST" && urlPath === "/groups") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.name) { json(res, 400, { error: "name is required" }); return; }
 			json(res, 201, crmApi.createGroup(body));
 			return;
 		}
 
-		const groupMembersMatch = urlPath.match(/^\/api\/crm\/groups\/(\d+)\/members$/);
+		const groupMembersMatch = urlPath.match(/^\/groups\/(\d+)\/members$/);
 		if (groupMembersMatch) {
 			const groupId = parseInt(groupMembersMatch[1]);
 			if (method === "GET") { json(res, 200, crmApi.getGroupMembers(groupId)); return; }
@@ -315,21 +343,21 @@ export async function handleCrmRequest(
 			}
 		}
 
-		const groupMemberMatch = urlPath.match(/^\/api\/crm\/groups\/(\d+)\/members\/(\d+)$/);
+		const groupMemberMatch = urlPath.match(/^\/groups\/(\d+)\/members\/(\d+)$/);
 		if (groupMemberMatch && method === "DELETE") {
 			json(res, 200, { ok: crmApi.removeGroupMember(parseInt(groupMemberMatch[1]), parseInt(groupMemberMatch[2])) });
 			return;
 		}
 
-		const groupMatch = urlPath.match(/^\/api\/crm\/groups\/(\d+)$/);
+		const groupMatch = urlPath.match(/^\/groups\/(\d+)$/);
 		if (groupMatch && method === "DELETE") {
 			json(res, 200, { ok: crmApi.deleteGroup(parseInt(groupMatch[1])) });
 			return;
 		}
 
 		// ── Extension Fields ────────────────────────────────
-		// GET /api/crm/contacts/:id/extension-fields[?source=...]
-		const extFieldsMatch = urlPath.match(/^\/api\/crm\/contacts\/(\d+)\/extension-fields$/);
+		// GET /contacts/:id/extension-fields[?source=...]
+		const extFieldsMatch = urlPath.match(/^\/contacts\/(\d+)\/extension-fields$/);
 		if (extFieldsMatch && method === "GET") {
 			const contactId = parseInt(extFieldsMatch[1]);
 			const source = url.searchParams.get("source");
@@ -339,7 +367,7 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		// PUT /api/crm/contacts/:id/extension-fields — upsert a field
+		// PUT /contacts/:id/extension-fields — upsert a field
 		if (extFieldsMatch && method === "PUT") {
 			const contactId = parseInt(extFieldsMatch[1]);
 			const body = JSON.parse(await readBody(req));
@@ -353,7 +381,7 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		// DELETE /api/crm/contacts/:id/extension-fields?source=...
+		// DELETE /contacts/:id/extension-fields?source=...
 		if (extFieldsMatch && method === "DELETE") {
 			const contactId = parseInt(extFieldsMatch[1]);
 			const source = url.searchParams.get("source");
@@ -363,8 +391,8 @@ export async function handleCrmRequest(
 		}
 
 		// ── Company Extension Fields ────────────────────────
-		// GET /api/crm/companies/:id/extension-fields[?source=...]
-		const coExtFieldsMatch = urlPath.match(/^\/api\/crm\/companies\/(\d+)\/extension-fields$/);
+		// GET /companies/:id/extension-fields[?source=...]
+		const coExtFieldsMatch = urlPath.match(/^\/companies\/(\d+)\/extension-fields$/);
 		if (coExtFieldsMatch && method === "GET") {
 			const companyId = parseInt(coExtFieldsMatch[1]);
 			const source = url.searchParams.get("source");
@@ -374,7 +402,7 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		// PUT /api/crm/companies/:id/extension-fields — upsert a field
+		// PUT /companies/:id/extension-fields — upsert a field
 		if (coExtFieldsMatch && method === "PUT") {
 			const companyId = parseInt(coExtFieldsMatch[1]);
 			const body = JSON.parse(await readBody(req));
@@ -388,7 +416,7 @@ export async function handleCrmRequest(
 			return;
 		}
 
-		// DELETE /api/crm/companies/:id/extension-fields?source=...
+		// DELETE /companies/:id/extension-fields?source=...
 		if (coExtFieldsMatch && method === "DELETE") {
 			const companyId = parseInt(coExtFieldsMatch[1]);
 			const source = url.searchParams.get("source");
@@ -408,13 +436,20 @@ export async function handleCrmRequest(
 
 /**
  * Start a standalone CRM web server. Returns the URL.
+ * Routes /api/crm/* to the API handler, everything else to the page handler.
  */
 export function startStandaloneServer(port: number = 4100): string {
 	if (standaloneServer) stopStandaloneServer();
 
+	const API_PREFIX = "/api/crm";
 	standaloneServer = http.createServer(async (req, res) => {
 		const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-		await handleCrmRequest(req, res, url.pathname);
+		if (url.pathname.startsWith(API_PREFIX + "/") || url.pathname === API_PREFIX) {
+			const subPath = url.pathname.slice(API_PREFIX.length) || "/";
+			await handleCrmApi(req, res, subPath);
+		} else {
+			await handleCrmPage(req, res, url.pathname);
+		}
 	});
 
 	standaloneServer.listen(port);
@@ -437,8 +472,9 @@ export function stopStandaloneServer(): boolean {
 // ── pi-webserver Integration ────────────────────────────────────
 
 /**
- * Mount CRM routes on the shared pi-webserver via the event bus.
- * The CRM will be available at /crm on the shared server.
+ * Mount CRM on the shared pi-webserver via the event bus.
+ * - Page at /crm (web:mount)
+ * - API at /api/crm (web:mount-api) — gets pi-webserver's token auth for free
  */
 export function mountOnWebServer(events: { emit: (event: string, data: unknown) => void }): void {
 	events.emit("web:mount", {
@@ -446,7 +482,14 @@ export function mountOnWebServer(events: { emit: (event: string, data: unknown) 
 		label: "Personal CRM",
 		description: "Contact management, interactions, and reminders",
 		prefix: "/crm",
-		handler: handleCrmRequest,
+		handler: handleCrmPage,
+	});
+	events.emit("web:mount-api", {
+		name: "crm-api",
+		label: "CRM API",
+		description: "CRM REST API",
+		prefix: "/crm",
+		handler: handleCrmApi,
 	});
 	webServerMounted = true;
 }
@@ -456,6 +499,7 @@ export function mountOnWebServer(events: { emit: (event: string, data: unknown) 
  */
 export function unmountFromWebServer(events: { emit: (event: string, data: unknown) => void }): void {
 	events.emit("web:unmount", { name: "crm" });
+	events.emit("web:unmount-api", { name: "crm-api" });
 	webServerMounted = false;
 }
 
@@ -467,6 +511,20 @@ export function isMountedOnWebServer(): boolean {
 }
 
 // ── Backward Compatibility ──────────────────────────────────────
+
+/** @deprecated Use handleCrmApi instead */
+export async function handleCrmRequest(
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	urlPath: string,
+): Promise<void> {
+	// Legacy handler — route based on path prefix
+	if (urlPath.startsWith("/api/crm")) {
+		const subPath = urlPath.slice("/api/crm".length) || "/";
+		return handleCrmApi(req, res, subPath);
+	}
+	return handleCrmPage(req, res, urlPath);
+}
 
 /** @deprecated Use startStandaloneServer instead */
 export function startCrmServer(port?: number): string {
