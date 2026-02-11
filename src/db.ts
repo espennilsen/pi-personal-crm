@@ -23,6 +23,7 @@ import type {
 	CreateRelationshipData,
 	Group,
 	CreateGroupData,
+	ImportResult,
 } from "./types.ts";
 import { crmRegistry } from "./registry.ts";
 
@@ -71,6 +72,10 @@ let stmts: {
 	getGroupMembers: any;
 	getContactGroups: any;
 	addGroupMember: any;
+
+	// Duplicate detection
+	findDuplicatesByEmail: any;
+	findDuplicatesByName: any;
 	removeGroupMember: any;
 };
 
@@ -379,6 +384,21 @@ export const crmDbModule: DbModule = {
 				DELETE FROM crm_group_members
 				WHERE group_id = ? AND contact_id = ?
 			`),
+
+			// Duplicate detection
+			findDuplicatesByEmail: db.prepare(`
+				SELECT c.*, co.name as company_name
+				FROM crm_contacts c
+				LEFT JOIN crm_companies co ON c.company_id = co.id
+				WHERE c.email = ? AND c.email IS NOT NULL AND c.email != ''
+			`),
+
+			findDuplicatesByName: db.prepare(`
+				SELECT c.*, co.name as company_name
+				FROM crm_contacts c
+				LEFT JOIN crm_companies co ON c.company_id = co.id
+				WHERE LOWER(c.first_name) = LOWER(?) AND LOWER(COALESCE(c.last_name, '')) = LOWER(?)
+			`),
 		};
 
 		// Register core entity types and interaction types
@@ -672,4 +692,218 @@ export const crmApi: CrmApi = {
 	searchCompanies(query: string, limit: number = 20): Company[] {
 		return this.getCompanies(query).slice(0, limit);
 	},
+
+	// ── Duplicate Detection ─────────────────────────────────────
+
+	findDuplicates(data: { email?: string; first_name: string; last_name?: string }): Contact[] {
+		const found = new Map<number, Contact>();
+
+		// Check by email (strongest signal)
+		if (data.email) {
+			const byEmail: Contact[] = stmts.findDuplicatesByEmail.all(data.email);
+			for (const c of byEmail) found.set(c.id, c);
+		}
+
+		// Check by name
+		const byName: Contact[] = stmts.findDuplicatesByName.all(
+			data.first_name,
+			data.last_name ?? "",
+		);
+		for (const c of byName) found.set(c.id, c);
+
+		return [...found.values()];
+	},
+
+	// ── CSV Export ───────────────────────────────────────────────
+
+	exportContactsCsv(): string {
+		const contacts = this.getContacts(undefined, 100_000);
+		const headers = [
+			"first_name", "last_name", "email", "phone",
+			"company_name", "birthday", "anniversary", "tags", "notes",
+		];
+
+		const escCsv = (val: string | null | undefined): string => {
+			if (val == null || val === "") return "";
+			const s = String(val);
+			if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+				return `"${s.replace(/"/g, '""')}"`;
+			}
+			return s;
+		};
+
+		const rows = [headers.join(",")];
+		for (const c of contacts) {
+			rows.push([
+				escCsv(c.first_name),
+				escCsv(c.last_name),
+				escCsv(c.email),
+				escCsv(c.phone),
+				escCsv(c.company_name),
+				escCsv(c.birthday),
+				escCsv(c.anniversary),
+				escCsv(c.tags),
+				escCsv(c.notes),
+			].join(","));
+		}
+
+		return rows.join("\n");
+	},
+
+	// ── CSV Import ──────────────────────────────────────────────
+
+	importContactsCsv(csv: string): ImportResult {
+		const result: ImportResult = { created: 0, skipped: 0, errors: [], duplicates: [] };
+
+		const lines = parseCsvLines(csv);
+		if (lines.length < 2) {
+			result.errors.push("CSV must have a header row and at least one data row");
+			return result;
+		}
+
+		const headers = lines[0].map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
+		const fieldMap: Record<string, string> = {
+			"first_name": "first_name", "firstname": "first_name", "first": "first_name",
+			"last_name": "last_name", "lastname": "last_name", "last": "last_name", "surname": "last_name",
+			"email": "email", "email_address": "email", "e-mail": "email",
+			"phone": "phone", "phone_number": "phone", "telephone": "phone", "mobile": "phone",
+			"company": "company_name", "company_name": "company_name", "organization": "company_name", "org": "company_name",
+			"birthday": "birthday", "date_of_birth": "birthday", "dob": "birthday", "birth_date": "birthday",
+			"anniversary": "anniversary",
+			"tags": "tags", "labels": "tags", "categories": "tags",
+			"notes": "notes", "note": "notes", "description": "notes",
+			"nickname": "nickname", "nick": "nickname",
+		};
+
+		// Map header indices to contact fields
+		const colMap: { index: number; field: string }[] = [];
+		for (let i = 0; i < headers.length; i++) {
+			const mapped = fieldMap[headers[i]];
+			if (mapped) colMap.push({ index: i, field: mapped });
+		}
+
+		if (!colMap.find(c => c.field === "first_name")) {
+			result.errors.push(`Missing required column: first_name (found: ${headers.join(", ")})`);
+			return result;
+		}
+
+		for (let rowIdx = 1; rowIdx < lines.length; rowIdx++) {
+			const cols = lines[rowIdx];
+			if (cols.length === 0 || (cols.length === 1 && cols[0].trim() === "")) continue;
+
+			const row: Record<string, string> = {};
+			for (const { index, field } of colMap) {
+				if (index < cols.length && cols[index].trim()) {
+					row[field] = cols[index].trim();
+				}
+			}
+
+			if (!row.first_name) {
+				result.errors.push(`Row ${rowIdx + 1}: missing first_name, skipped`);
+				result.skipped++;
+				continue;
+			}
+
+			// Duplicate check
+			const dupes = this.findDuplicates({
+				email: row.email,
+				first_name: row.first_name,
+				last_name: row.last_name,
+			});
+
+			if (dupes.length > 0) {
+				const label = `${row.first_name} ${row.last_name || ""}`.trim();
+				result.duplicates.push({ row: rowIdx + 1, existing: dupes[0], incoming: label });
+				result.skipped++;
+				continue;
+			}
+
+			// Resolve company
+			let company_id: number | undefined;
+			if (row.company_name) {
+				const companies = this.getCompanies(row.company_name);
+				const exact = companies.find(c => c.name.toLowerCase() === row.company_name!.toLowerCase());
+				if (exact) {
+					company_id = exact.id;
+				} else {
+					const newCo = this.createCompany({ name: row.company_name });
+					company_id = newCo.id;
+				}
+			}
+
+			try {
+				this.createContact({
+					first_name: row.first_name,
+					last_name: row.last_name,
+					nickname: row.nickname,
+					email: row.email,
+					phone: row.phone,
+					company_id,
+					birthday: row.birthday,
+					anniversary: row.anniversary,
+					tags: row.tags,
+					notes: row.notes,
+				});
+				result.created++;
+			} catch (err: any) {
+				result.errors.push(`Row ${rowIdx + 1}: ${err.message}`);
+				result.skipped++;
+			}
+		}
+
+		return result;
+	},
 };
+
+// ── CSV Parser ──────────────────────────────────────────────────
+
+/**
+ * Parse CSV text into rows of columns, handling quoted fields.
+ */
+function parseCsvLines(csv: string): string[][] {
+	const rows: string[][] = [];
+	let current: string[] = [];
+	let field = "";
+	let inQuotes = false;
+
+	for (let i = 0; i < csv.length; i++) {
+		const ch = csv[i];
+
+		if (inQuotes) {
+			if (ch === '"') {
+				if (i + 1 < csv.length && csv[i + 1] === '"') {
+					field += '"';
+					i++; // skip escaped quote
+				} else {
+					inQuotes = false;
+				}
+			} else {
+				field += ch;
+			}
+		} else {
+			if (ch === '"') {
+				inQuotes = true;
+			} else if (ch === ",") {
+				current.push(field);
+				field = "";
+			} else if (ch === "\n") {
+				current.push(field);
+				field = "";
+				if (current.length > 0) rows.push(current);
+				current = [];
+			} else if (ch === "\r") {
+				// skip, handle \r\n
+			} else {
+				field += ch;
+			}
+		}
+	}
+
+	// Last field/row
+	current.push(field);
+	if (current.length > 0 && !(current.length === 1 && current[0] === "")) {
+		rows.push(current);
+	}
+
+	return rows;
+}

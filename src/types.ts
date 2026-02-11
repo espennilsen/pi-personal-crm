@@ -201,4 +201,20 @@ export interface CrmApi {
 	// Search
 	searchContacts(query: string, limit?: number): Contact[];
 	searchCompanies(query: string, limit?: number): Company[];
+
+	// Duplicate detection
+	findDuplicates(data: { email?: string; first_name: string; last_name?: string }): Contact[];
+
+	// Import/Export
+	exportContactsCsv(): string;
+	importContactsCsv(csv: string): ImportResult;
+}
+
+// ── Import Result ───────────────────────────────────────────────
+
+export interface ImportResult {
+	created: number;
+	skipped: number;
+	errors: string[];
+	duplicates: { row: number; existing: Contact; incoming: string }[];
 }

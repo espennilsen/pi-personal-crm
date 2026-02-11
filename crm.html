@@ -130,6 +130,9 @@
     <h1>📇 CRM</h1>
     <input type="text" id="search" class="search-box" placeholder="Search contacts...">
     <div style="flex: 1"></div>
+    <button class="btn" onclick="exportCsv()">⬇ Export</button>
+    <button class="btn" onclick="document.getElementById('csvFileInput').click()">⬆ Import</button>
+    <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="importCsv(event)">
     <button class="btn btn-primary" onclick="showAddContactModal()">+ New Contact</button>
   </div>
 
@@ -587,7 +590,7 @@
     showModal('contactModal');
   }
 
-  async function saveContact(e) {
+  async function saveContact(e, force = false) {
     e.preventDefault();
     
     const id = document.getElementById('contactId').value;
@@ -605,12 +608,29 @@
 
     try {
       if (id) {
+        // Update — no dupe check needed
         await fetch(`/api/crm/contacts/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
       } else {
+        // New contact — check for duplicates first
+        if (!force) {
+          const dupeRes = await fetch('/api/crm/contacts/check-duplicates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ first_name: data.first_name, last_name: data.last_name, email: data.email })
+          });
+          const { duplicates } = await dupeRes.json();
+          if (duplicates && duplicates.length > 0) {
+            const names = duplicates.map(d => `${d.first_name} ${d.last_name || ''} (${d.email || 'no email'}, ID: ${d.id})`).join('\n  ');
+            if (!confirm(`⚠️ Possible duplicate(s) found:\n  ${names}\n\nCreate anyway?`)) {
+              return;
+            }
+          }
+        }
+
         const res = await fetch('/api/crm/contacts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -849,6 +869,47 @@
     } catch (err) {
       console.error('Failed to create group:', err);
       alert('Failed to create group');
+    }
+  }
+
+  // ── Import/Export ───────────────────────────────────────────
+
+  function exportCsv() {
+    window.location.href = '/api/crm/contacts/export.csv';
+  }
+
+  async function importCsv(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const text = await file.text();
+    e.target.value = ''; // reset so same file can be re-selected
+
+    try {
+      const res = await fetch('/api/crm/contacts/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv' },
+        body: text
+      });
+      const result = await res.json();
+
+      let msg = `Import complete:\n✅ Created: ${result.created}\n⏭ Skipped: ${result.skipped}`;
+      if (result.duplicates && result.duplicates.length > 0) {
+        msg += `\n\n⚠️ Duplicates found (skipped):`;
+        for (const d of result.duplicates) {
+          msg += `\n  Row ${d.row}: "${d.incoming}" matches "${d.existing.first_name} ${d.existing.last_name || ''}" (ID: ${d.existing.id})`;
+        }
+      }
+      if (result.errors && result.errors.length > 0) {
+        msg += `\n\n❌ Errors:\n  ${result.errors.join('\n  ')}`;
+      }
+
+      alert(msg);
+      await loadContacts();
+      await loadCompanies();
+    } catch (err) {
+      console.error('Failed to import CSV:', err);
+      alert('Failed to import CSV');
     }
   }
 

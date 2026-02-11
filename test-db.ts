@@ -181,6 +181,97 @@ try {
 		throw new Error(`Expected 1 member after removal, got ${membersAfter.length}`);
 	}
 
+	// Duplicate detection
+	console.log("\n🔍 Testing duplicate detection...");
+	const dupes1 = crmApi.findDuplicates({ email: "john@acme.example", first_name: "John" });
+	console.log(`  Find by email: ${dupes1.length} match(es)`);
+	if (dupes1.length !== 1 || dupes1[0].id !== contact.id) {
+		throw new Error(`Expected 1 duplicate by email, got ${dupes1.length}`);
+	}
+	const dupes2 = crmApi.findDuplicates({ first_name: "John", last_name: "Doe" });
+	console.log(`  Find by name: ${dupes2.length} match(es)`);
+	if (dupes2.length !== 1) {
+		throw new Error(`Expected 1 duplicate by name, got ${dupes2.length}`);
+	}
+	const dupes3 = crmApi.findDuplicates({ first_name: "Nobody", last_name: "Here" });
+	console.log(`  Find non-existent: ${dupes3.length} match(es)`);
+	if (dupes3.length !== 0) {
+		throw new Error(`Expected 0 duplicates, got ${dupes3.length}`);
+	}
+
+	// CSV export
+	console.log("\n📊 Testing CSV export...");
+	const csv = crmApi.exportContactsCsv();
+	const csvLines = csv.split("\n");
+	console.log(`  Exported ${csvLines.length - 1} rows (+ header)`);
+	console.log(`  Header: ${csvLines[0]}`);
+	if (!csvLines[0].includes("first_name")) {
+		throw new Error("CSV header missing first_name");
+	}
+	if (csvLines.length < 3) { // header + 2 contacts
+		throw new Error(`Expected at least 3 CSV lines, got ${csvLines.length}`);
+	}
+
+	// CSV import
+	console.log("\n📊 Testing CSV import...");
+	const importCsv = `first_name,last_name,email,company,tags
+Alice,Wonder,alice@wonder.example,WonderCo,imported
+Bob,Builder,bob@builder.example,,imported
+John,Doe,john@acme.example,,duplicate`;
+
+	const importResult = crmApi.importContactsCsv(importCsv);
+	console.log(`  Created: ${importResult.created}`);
+	console.log(`  Skipped: ${importResult.skipped}`);
+	console.log(`  Duplicates: ${importResult.duplicates.length}`);
+	console.log(`  Errors: ${importResult.errors.length}`);
+
+	if (importResult.created !== 2) {
+		throw new Error(`Expected 2 created, got ${importResult.created}`);
+	}
+	if (importResult.duplicates.length !== 1) {
+		throw new Error(`Expected 1 duplicate, got ${importResult.duplicates.length}`);
+	}
+	if (importResult.duplicates[0].incoming !== "John Doe") {
+		throw new Error(`Expected duplicate to be "John Doe", got "${importResult.duplicates[0].incoming}"`);
+	}
+
+	// Verify imported contacts
+	const alice = crmApi.searchContacts("Alice", 1);
+	if (alice.length !== 1 || alice[0].email !== "alice@wonder.example") {
+		throw new Error("Alice not imported correctly");
+	}
+	console.log(`  Verified Alice: ${alice[0].first_name} ${alice[0].last_name} @ ${alice[0].company_name}`);
+
+	// Verify WonderCo was auto-created
+	const wonderCo = crmApi.getCompanies("WonderCo");
+	if (wonderCo.length !== 1) {
+		throw new Error("WonderCo company was not auto-created during import");
+	}
+	console.log(`  Verified auto-created company: ${wonderCo[0].name}`);
+
+	// Test CSV with quoted fields
+	console.log("\n📊 Testing CSV with quoted fields...");
+	const quotedCsv = `first_name,last_name,notes
+"Eve","O'Brien","She said ""hello"", then left"`;
+	const quotedResult = crmApi.importContactsCsv(quotedCsv);
+	console.log(`  Created: ${quotedResult.created}`);
+	if (quotedResult.created !== 1) {
+		throw new Error(`Expected 1 created from quoted CSV, got ${quotedResult.created}`);
+	}
+	const eve = crmApi.searchContacts("Eve", 1);
+	if (!eve[0].notes?.includes('"hello"')) {
+		throw new Error(`Expected notes with escaped quotes, got: ${eve[0].notes}`);
+	}
+	console.log(`  Verified Eve's notes: ${eve[0].notes}`);
+
+	// Clean up imported contacts
+	for (const c of [alice[0], ...crmApi.searchContacts("Bob", 1), eve[0]]) {
+		crmApi.deleteContact(c.id);
+	}
+	for (const co of wonderCo) {
+		crmApi.deleteCompany(co.id);
+	}
+
 	// Delete operations
 	console.log("\n🗑️  Testing deletions...");
 	console.log(`  Delete relationship: ${crmApi.deleteRelationship(relationship.id)}`);

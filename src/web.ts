@@ -189,6 +189,52 @@ function doRegister(server: HostServer): void {
 		jsonResponse(res, 200, { ok });
 	});
 
+	// ── Import/Export ───────────────────────────────────────────
+
+	// GET /api/crm/contacts/export.csv — export all contacts as CSV
+	server.addWebRoute("GET", "/api/crm/contacts/export.csv", (_req, res) => {
+		const csv = crmApi.exportContactsCsv();
+		res.writeHead(200, {
+			"Content-Type": "text/csv; charset=utf-8",
+			"Content-Disposition": 'attachment; filename="crm-contacts.csv"',
+		});
+		res.end(csv);
+	});
+
+	// POST /api/crm/contacts/import — import contacts from CSV
+	server.addWebRoute("POST", "/api/crm/contacts/import", async (req, res) => {
+		try {
+			const csv = await readBody(req);
+			if (!csv.trim()) {
+				jsonResponse(res, 400, { error: "Empty CSV body" });
+				return;
+			}
+			const result = crmApi.importContactsCsv(csv);
+			jsonResponse(res, 200, result);
+		} catch (err: any) {
+			jsonResponse(res, 400, { error: err.message });
+		}
+	});
+
+	// POST /api/crm/contacts/check-duplicates — check for duplicates before creating
+	server.addWebRoute("POST", "/api/crm/contacts/check-duplicates", async (req, res) => {
+		try {
+			const body = JSON.parse(await readBody(req));
+			if (!body.first_name) {
+				jsonResponse(res, 400, { error: "first_name is required" });
+				return;
+			}
+			const duplicates = crmApi.findDuplicates({
+				email: body.email,
+				first_name: body.first_name,
+				last_name: body.last_name,
+			});
+			jsonResponse(res, 200, { duplicates });
+		} catch (err: any) {
+			jsonResponse(res, 400, { error: err.message });
+		}
+	});
+
 	// ── Companies ───────────────────────────────────────────────
 
 	// GET /api/crm/companies — list companies

@@ -50,9 +50,12 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 				"- add_company — Create a new company\n" +
 				"- list_groups — List all groups\n" +
 				"- add_to_group — Add a contact to a group (creates group if needed)\n" +
-				"- remove_from_group — Remove a contact from a group\n\n" +
+				"- remove_from_group — Remove a contact from a group\n" +
+				"- export_csv — Export all contacts as CSV\n" +
+				"- import_csv — Import contacts from CSV (with duplicate detection)\n\n" +
 				"**Interaction types:** call, meeting, email, note, gift, message\n\n" +
-				"When creating/updating contacts, capture: name, email, phone, company, birthday, tags, notes.",
+				"When creating/updating contacts, capture: name, email, phone, company, birthday, tags, notes.\n" +
+				"Duplicate detection runs automatically on add_contact and import_csv (matches by email or name).",
 		};
 	});
 
@@ -67,7 +70,7 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 		description: "Search and manage contacts, companies, and interactions in the personal CRM.",
 		parameters: Type.Object({
 			action: StringEnum(
-				["search", "contact", "add_contact", "update_contact", "log_interaction", "add_reminder", "upcoming", "list_companies", "add_company", "add_relationship", "list_groups", "add_to_group", "remove_from_group", "delete_contact"] as const,
+				["search", "contact", "add_contact", "update_contact", "log_interaction", "add_reminder", "upcoming", "list_companies", "add_company", "add_relationship", "list_groups", "add_to_group", "remove_from_group", "delete_contact", "export_csv", "import_csv"] as const,
 				{ description: "CRM action to perform" },
 			),
 
@@ -124,6 +127,9 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 			group_id: Type.Optional(Type.Number({ description: "Group ID (for add_to_group, remove_from_group)" })),
 			group_name: Type.Optional(Type.String({ description: "Group name (for list_groups with new group creation, or add_to_group by name)" })),
 			group_description: Type.Optional(Type.String({ description: "Group description (when creating a new group)" })),
+
+			// Import
+			csv_data: Type.Optional(Type.String({ description: "CSV text to import (for import_csv)" })),
 		}),
 
 		async execute(_toolCallId: string, params: any, _signal: any, _onUpdate: any, _ctx: any) {
@@ -263,6 +269,22 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 				if (params.action === "add_contact") {
 					if (!params.first_name) {
 						return text("❌ first_name is required");
+					}
+
+					// Check for duplicates
+					const dupes = crm.findDuplicates({
+						email: params.email,
+						first_name: params.first_name,
+						last_name: params.last_name,
+					});
+					if (dupes.length > 0) {
+						const dupeList = dupes
+							.map(d => `- ${d.first_name} ${d.last_name || ""} (${d.email || "no email"}, ID: ${d.id})`)
+							.join("\n");
+						return text(
+							`⚠️ Possible duplicate(s) found:\n${dupeList}\n\n` +
+							`Use update_contact to modify an existing contact, or add with a distinguishing detail.`,
+						);
 					}
 
 					// Handle company by name
@@ -573,6 +595,41 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 					const groupName = group ? group.name : `ID ${groupId}`;
 
 					return text(`✅ Removed ${contactName} from group "${groupName}"`);
+				}
+
+				// ── export_csv ──────────────────────────────────────
+
+				if (params.action === "export_csv") {
+					const csv = crm.exportContactsCsv();
+					const lines = csv.split("\n");
+					return text(
+						`📊 Exported ${lines.length - 1} contact(s) as CSV:\n\n\`\`\`csv\n${csv}\n\`\`\``,
+					);
+				}
+
+				// ── import_csv ──────────────────────────────────────
+
+				if (params.action === "import_csv") {
+					if (!params.csv_data) {
+						return text("❌ csv_data is required (CSV text with header row)");
+					}
+
+					const result = crm.importContactsCsv(params.csv_data);
+
+					let msg = `📊 Import complete:\n✅ Created: ${result.created}\n⏭ Skipped: ${result.skipped}`;
+
+					if (result.duplicates.length > 0) {
+						msg += `\n\n⚠️ Duplicates found (skipped):`;
+						for (const d of result.duplicates) {
+							msg += `\n- Row ${d.row}: "${d.incoming}" matches ${d.existing.first_name} ${d.existing.last_name || ""} (ID: ${d.existing.id})`;
+						}
+					}
+
+					if (result.errors.length > 0) {
+						msg += `\n\n❌ Errors:\n${result.errors.map(e => `- ${e}`).join("\n")}`;
+					}
+
+					return text(msg);
 				}
 
 				return text(`❌ Unknown action: ${params.action}`);
