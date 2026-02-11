@@ -27,7 +27,7 @@
 
   async function loadInteractionsPage() {
     try {
-      allPageInteractions = await (await fetch('/api/crm/interactions')).json();
+      allPageInteractions = await (await fetch('api/crm/interactions')).json();
       filterInteractionsPage();
     } catch (err) {
       console.error('Failed to load interactions:', err);
@@ -78,7 +78,7 @@
   async function deleteInteractionPage(id) {
     if (!confirm('Delete this interaction?')) return;
     try {
-      await fetch(`/api/crm/interactions/${id}`, { method: 'DELETE' });
+      await fetch(`api/crm/interactions/${id}`, { method: 'DELETE' });
       await loadInteractionsPage();
     } catch (err) {
       console.error('Failed to delete interaction:', err);

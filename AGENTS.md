@@ -20,9 +20,11 @@ The extension auto-discovers and loads via the `pi` manifest in `package.json`.
 **Tool:** `crm` — 16 actions for contact management, searchable by the agent.
 
 **Commands:**
-- `/crm-web [port]` — Start/stop a web UI on localhost
+- `/crm-web [port|stop|status]` — Start/stop a standalone web UI on localhost
 - `/crm-export` — Export contacts to CSV file
 - `/crm-import path.csv` — Import contacts from CSV
+
+**pi-webserver integration:** If [pi-webserver](https://github.com/espennilsen/pi-webserver) is installed, the CRM auto-mounts at `/crm` on the shared web server (no extra setup needed). Use `/web` to start the shared server, then visit `http://localhost:4100/crm/`. The standalone `/crm-web` command still works independently.
 
 **System prompt:** The agent receives CRM workflow instructions automatically via `before_agent_start`.
 

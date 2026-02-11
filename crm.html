@@ -223,7 +223,7 @@
   }
 
   async function refreshContacts() {
-    const res = await fetch('/api/crm/contacts?limit=1000');
+    const res = await fetch('api/crm/contacts?limit=1000');
     allContacts = await res.json();
     return allContacts;
   }
