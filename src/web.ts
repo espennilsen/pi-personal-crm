@@ -10,6 +10,22 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { crmApi } from "./db.ts";
 
+// ── Validation ──────────────────────────────────────────────────
+
+/**
+ * Sanitize a URL: only allow http(s) protocols. Returns the cleaned
+ * URL or null if the value is empty/missing. Throws on bad protocols.
+ */
+function sanitizeUrl(value: unknown): string | null {
+	if (value == null || value === "") return null;
+	const s = String(value).trim();
+	if (!s) return null;
+	if (/^https?:\/\//i.test(s)) return s;
+	// Bare domain — assume https
+	if (!s.includes("://")) return `https://${s}`;
+	throw new Error(`Invalid URL protocol — only http and https are allowed`);
+}
+
 // ── State ───────────────────────────────────────────────────────
 
 let standaloneServer: http.Server | null = null;
@@ -173,6 +189,7 @@ export async function handleCrmRequest(
 			const id = parseInt(companyMatch[1]);
 			if (method === "PATCH") {
 				const body = JSON.parse(await readBody(req));
+				if (body.website !== undefined) body.website = sanitizeUrl(body.website);
 				const co = crmApi.updateCompany(id, body);
 				if (!co) { json(res, 404, { error: "Not found" }); return; }
 				json(res, 200, co);
@@ -184,6 +201,7 @@ export async function handleCrmRequest(
 		if (method === "POST" && urlPath === "/api/crm/companies") {
 			const body = JSON.parse(await readBody(req));
 			if (!body.name) { json(res, 400, { error: "name is required" }); return; }
+			body.website = sanitizeUrl(body.website);
 			json(res, 201, crmApi.createCompany(body));
 			return;
 		}

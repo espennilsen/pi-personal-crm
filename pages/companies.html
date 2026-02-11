@@ -60,6 +60,15 @@
   let allCompaniesPage = [];
   let currentCompanyId = null;
 
+  /** Render-time URL sanitizer — only allow http(s) hrefs */
+  function safeHref(url) {
+    if (!url) return '';
+    const s = url.trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    if (!s.includes('://')) return 'https://' + s;
+    return '';
+  }
+
   async function loadCompaniesPage(search) {
     try {
       const q = search ? `?q=${encodeURIComponent(search)}` : '';
@@ -123,7 +132,7 @@
 
         ${company.website ? `
         <div class="section">
-          <div class="detail-field"><span class="detail-field-icon">🔗</span> <a href="${esc(company.website)}" target="_blank" style="color: var(--accent2);">${esc(company.website)}</a></div>
+          <div class="detail-field"><span class="detail-field-icon">🔗</span> <a href="${safeHref(company.website)}" target="_blank" rel="noopener" style="color: var(--accent2);">${esc(company.website)}</a></div>
         </div>
         ` : ''}
 
