@@ -57,6 +57,9 @@ Returns:
 **Reminders:**
 - birthday: 2026-05-15 — Wish John a happy birthday!
 
+**Groups:**
+- VIP Clients — High-value customers
+
 _Contact ID: 1_
 ```
 
@@ -89,6 +92,48 @@ Tool call:
 Returns:
 ```
 ✅ Created contact: Sarah Johnson (ID: 2)
+```
+
+## Update a Contact
+
+```
+Update John's tags to include "enterprise" and change notes to "Key account - high value"
+```
+
+Tool call:
+```json
+{
+  "tool": "crm",
+  "action": "update_contact",
+  "contact_id": 1,
+  "tags": "vip,client,enterprise",
+  "notes": "Key account - high value"
+}
+```
+
+Returns:
+```
+✅ Updated contact: John Doe
+```
+
+## Delete a Contact
+
+```
+Remove the old test contact (ID 99)
+```
+
+Tool call:
+```json
+{
+  "tool": "crm",
+  "action": "delete_contact",
+  "contact_id": 99
+}
+```
+
+Returns:
+```
+✅ Deleted contact: Test User (ID: 99)
 ```
 
 ## Log an Interaction
@@ -158,26 +203,26 @@ Returns:
 - 2026-05-15: birthday — John Doe (Wish John a happy birthday!)
 ```
 
-## Update a Contact
+## Add a Relationship
 
 ```
-Update John's tags to include "enterprise" and change notes to "Key account - high value"
+John and Sarah are colleagues
 ```
 
 Tool call:
 ```json
 {
   "tool": "crm",
-  "action": "update_contact",
+  "action": "add_relationship",
   "contact_id": 1,
-  "tags": "vip,client,enterprise",
-  "notes": "Key account - high value"
+  "related_contact_id": 2,
+  "relationship_type": "colleague"
 }
 ```
 
 Returns:
 ```
-✅ Updated contact: John Doe
+✅ Added relationship: John Doe ↔ Sarah Johnson (colleague)
 ```
 
 ## List Companies
@@ -202,6 +247,109 @@ Returns:
 - TechStartup — (ID: 2)
 ```
 
+## Add a Company
+
+```
+Add a new company: DataFlow Labs, fintech, https://dataflow.example
+```
+
+Tool call:
+```json
+{
+  "tool": "crm",
+  "action": "add_company",
+  "company_name": "DataFlow Labs",
+  "industry": "Fintech",
+  "website": "https://dataflow.example"
+}
+```
+
+Returns:
+```
+✅ Created company: DataFlow Labs (ID: 3)
+```
+
+## List Groups
+
+```
+What groups do we have?
+```
+
+Tool call:
+```json
+{
+  "tool": "crm",
+  "action": "list_groups"
+}
+```
+
+Returns:
+```
+📂 Groups (2):
+
+- VIP Clients — High-value customers (3 members, ID: 1)
+- Newsletter — Monthly newsletter subscribers (12 members, ID: 2)
+```
+
+## Add to Group
+
+```
+Add John to the VIP Clients group
+```
+
+Tool call:
+```json
+{
+  "tool": "crm",
+  "action": "add_to_group",
+  "contact_id": 1,
+  "group_name": "VIP Clients"
+}
+```
+
+Returns:
+```
+✅ Added John Doe to group "VIP Clients"
+```
+
+If the group doesn't exist, it's created automatically:
+
+```json
+{
+  "tool": "crm",
+  "action": "add_to_group",
+  "contact_id": 1,
+  "group_name": "Beta Testers",
+  "group_description": "Users in the beta program"
+}
+```
+
+Returns:
+```
+✅ Added John Doe to group "Beta Testers"
+```
+
+## Remove from Group
+
+```
+Remove Sarah from the Newsletter group
+```
+
+Tool call:
+```json
+{
+  "tool": "crm",
+  "action": "remove_from_group",
+  "contact_id": 2,
+  "group_name": "Newsletter"
+}
+```
+
+Returns:
+```
+✅ Removed Sarah Johnson from group "Newsletter"
+```
+
 ## Natural Language Examples
 
 The CRM tool works naturally in conversation:
@@ -213,5 +361,9 @@ The CRM tool works naturally in conversation:
 - "Who has a birthday coming up soon?"
 - "Tag John as an enterprise customer"
 - "Show me all companies in the tech industry"
+- "John and Jane are married"
+- "Add everyone from TechStartup to the Beta Testers group"
+- "What groups is John in?"
+- "Remove the test contact"
 
 The agent will map these to the appropriate CRM tool actions.
