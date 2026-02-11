@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hannah — CRM</title>
+<title>CRM</title>
 <style>
   :root {
     --bg: #0a0a0f; --bg2: #12121a; --bg3: #1a1a25;
@@ -76,6 +76,7 @@
   .timeline-dot.email { border-color: var(--yellow); }
   .timeline-dot.note { border-color: var(--accent); }
   .timeline-dot.gift { border-color: var(--red); }
+  .timeline-dot.message { border-color: var(--accent2); }
   .timeline-date { font-size: 11px; color: var(--fg3); margin-bottom: 4px; }
   .timeline-content { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
   .timeline-type { display: inline-block; background: var(--bg); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }
@@ -84,6 +85,7 @@
   .timeline-type.email { color: var(--yellow); }
   .timeline-type.note { color: var(--accent); }
   .timeline-type.gift { color: var(--red); }
+  .timeline-type.message { color: var(--accent2); }
   .timeline-summary { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
   .timeline-notes { font-size: 12px; color: var(--fg2); }
 
@@ -114,14 +116,9 @@
 </head>
 <body>
 
-<nav>
-  <span class="nav-brand">Hannah</span>
-  <a href="/dashboard">Dashboard</a>
-  <a href="/tasks">Tasks</a>
-  <a href="/calendar">Calendar</a>
-  <a href="/projects">Projects</a>
-  <a href="/vault">Vault</a>
-  <a href="/crm" class="active">CRM</a>
+<nav id="crmNav">
+  <span class="nav-brand">CRM</span>
+  <a href="/crm" class="active">Contacts</a>
   <div class="nav-spacer"></div>
 </nav>
 
@@ -262,6 +259,13 @@
   let currentContactId = null;
   let allContacts = [];
 
+  // ── XSS Escaping ────────────────────────────────────────────
+
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   // ── Init ─────────────────────────────────────────────────────
 
   async function init() {
@@ -313,12 +317,12 @@
     }
     list.innerHTML = contacts.map(c => `
       <div class="contact-item ${c.id === currentContactId ? 'active' : ''}" onclick="selectContact(${c.id})">
-        <div class="contact-name">${c.first_name} ${c.last_name || ''}</div>
+        <div class="contact-name">${esc(c.first_name)} ${esc(c.last_name)}</div>
         <div class="contact-meta">
-          ${c.email ? `<span>📧 ${c.email}</span>` : ''}
-          ${c.company_name ? `<span class="contact-company">@ ${c.company_name}</span>` : ''}
+          ${c.email ? `<span>📧 ${esc(c.email)}</span>` : ''}
+          ${c.company_name ? `<span class="contact-company">@ ${esc(c.company_name)}</span>` : ''}
         </div>
-        ${c.tags ? `<div class="contact-tags">${c.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('')}</div>` : ''}
+        ${c.tags ? `<div class="contact-tags">${c.tags.split(',').map(t => `<span class="tag">${esc(t.trim())}</span>`).join('')}</div>` : ''}
       </div>
     `).join('');
   }
@@ -348,10 +352,10 @@
     panel.innerHTML = `
       <div class="detail-header">
         <div style="flex: 1;">
-          <div class="contact-avatar">${initials}</div>
-          <div class="detail-name">${contact.first_name} ${contact.last_name || ''}</div>
-          ${contact.company_name ? `<div class="detail-company">@ ${contact.company_name}</div>` : ''}
-          ${contact.tags ? `<div class="contact-tags">${contact.tags.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('')}</div>` : ''}
+          <div class="contact-avatar">${esc(initials)}</div>
+          <div class="detail-name">${esc(contact.first_name)} ${esc(contact.last_name)}</div>
+          ${contact.company_name ? `<div class="detail-company">@ ${esc(contact.company_name)}</div>` : ''}
+          ${contact.tags ? `<div class="contact-tags">${contact.tags.split(',').map(t => `<span class="tag">${esc(t.trim())}</span>`).join('')}</div>` : ''}
         </div>
         <div class="detail-actions">
           <button class="btn btn-sm" onclick="showEditContactModal(${contact.id})">✏️ Edit</button>
@@ -362,17 +366,17 @@
 
       ${contact.email || contact.phone || contact.birthday || contact.anniversary ? `
       <div class="section">
-        ${contact.email ? `<div class="detail-field"><span class="detail-field-icon">📧</span> ${contact.email}</div>` : ''}
-        ${contact.phone ? `<div class="detail-field"><span class="detail-field-icon">📞</span> ${contact.phone}</div>` : ''}
-        ${contact.birthday ? `<div class="detail-field"><span class="detail-field-icon">🎂</span> Birthday: ${contact.birthday}</div>` : ''}
-        ${contact.anniversary ? `<div class="detail-field"><span class="detail-field-icon">💍</span> Anniversary: ${contact.anniversary}</div>` : ''}
+        ${contact.email ? `<div class="detail-field"><span class="detail-field-icon">📧</span> ${esc(contact.email)}</div>` : ''}
+        ${contact.phone ? `<div class="detail-field"><span class="detail-field-icon">📞</span> ${esc(contact.phone)}</div>` : ''}
+        ${contact.birthday ? `<div class="detail-field"><span class="detail-field-icon">🎂</span> Birthday: ${esc(contact.birthday)}</div>` : ''}
+        ${contact.anniversary ? `<div class="detail-field"><span class="detail-field-icon">💍</span> Anniversary: ${esc(contact.anniversary)}</div>` : ''}
       </div>
       ` : ''}
 
       ${contact.notes ? `
       <div class="section">
         <div class="section-title">Notes</div>
-        <div style="font-size: 13px; color: var(--fg2);">${contact.notes.replace(/\n/g, '<br>')}</div>
+        <div style="font-size: 13px; color: var(--fg2);">${esc(contact.notes).replace(/\n/g, '<br>')}</div>
       </div>
       ` : ''}
 
@@ -383,8 +387,8 @@
           ${reminders.map(r => `
             <div class="rem-item">
               <div>
-                <div class="rem-type">${r.reminder_type}</div>
-                <div>${r.reminder_date}${r.message ? ` — ${r.message}` : ''}</div>
+                <div class="rem-type">${esc(r.reminder_type)}</div>
+                <div>${esc(r.reminder_date)}${r.message ? ` — ${esc(r.message)}` : ''}</div>
               </div>
             </div>
           `).join('')}
@@ -399,8 +403,8 @@
           ${relationships.map(r => `
             <div class="rel-item">
               <div>
-                <div class="rel-type">${r.relationship_type}</div>
-                <div class="rel-name">${r.first_name} ${r.last_name || ''}</div>
+                <div class="rel-type">${esc(r.relationship_type)}</div>
+                <div class="rel-name">${esc(r.first_name)} ${esc(r.last_name)}</div>
               </div>
             </div>
           `).join('')}
@@ -414,12 +418,12 @@
           <div class="timeline">
             ${interactions.map(i => `
               <div class="timeline-item">
-                <div class="timeline-dot ${i.interaction_type}"></div>
+                <div class="timeline-dot ${esc(i.interaction_type)}"></div>
                 <div class="timeline-date">${new Date(i.happened_at).toLocaleString()}</div>
                 <div class="timeline-content">
-                  <div class="timeline-type ${i.interaction_type}">${i.interaction_type}</div>
-                  <div class="timeline-summary">${i.summary}</div>
-                  ${i.notes ? `<div class="timeline-notes">${i.notes}</div>` : ''}
+                  <div class="timeline-type ${esc(i.interaction_type)}">${esc(i.interaction_type)}</div>
+                  <div class="timeline-summary">${esc(i.summary)}</div>
+                  ${i.notes ? `<div class="timeline-notes">${esc(i.notes)}</div>` : ''}
                 </div>
               </div>
             `).join('')}
@@ -436,7 +440,7 @@
       const res = await fetch('/api/crm/companies');
       const companies = await res.json();
       const datalist = document.getElementById('companies');
-      datalist.innerHTML = companies.map(c => `<option value="${c.name}">`).join('');
+      datalist.innerHTML = companies.map(c => `<option value="${esc(c.name)}">`).join('');
     } catch (err) {
       console.error('Failed to load companies:', err);
     }

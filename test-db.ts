@@ -104,12 +104,74 @@ try {
 	});
 	console.log(`  Updated tags: ${updated?.tags}`);
 
+	// Create a second contact for relationships
+	console.log("\n👤 Creating second contact...");
+	const contact2 = crmApi.createContact({
+		first_name: "Jane",
+		last_name: "Doe",
+		email: "jane@acme.example",
+		company_id: company.id,
+	});
+	console.log(`  Created: ${contact2.first_name} ${contact2.last_name} (ID: ${contact2.id})`);
+
+	// Create relationship
+	console.log("\n🤝 Creating relationship...");
+	const relationship = crmApi.createRelationship({
+		contact_id: contact.id,
+		related_contact_id: contact2.id,
+		relationship_type: "spouse",
+	});
+	console.log(`  Created: ${relationship.relationship_type} (ID: ${relationship.id})`);
+
+	// Get relationships (tests JOIN with first_name/last_name)
+	console.log("\n🤝 Getting relationships...");
+	const relationships = crmApi.getRelationships(contact.id);
+	console.log(`  Found ${relationships.length} relationship(s)`);
+	for (const r of relationships) {
+		console.log(`  - ${r.relationship_type}: ${r.first_name} ${r.last_name}`);
+	}
+	if (!relationships[0].first_name) {
+		throw new Error("Relationship missing first_name from JOIN");
+	}
+
+	// Get upcoming reminders (tests JOIN with first_name/last_name)
+	console.log("\n📅 Getting upcoming reminders...");
+	const upcoming = crmApi.getUpcomingReminders(365);
+	console.log(`  Found ${upcoming.length} upcoming reminder(s)`);
+	for (const r of upcoming) {
+		console.log(`  - ${r.reminder_date}: ${r.reminder_type} — ${r.first_name} ${r.last_name}`);
+	}
+	if (upcoming.length > 0 && !upcoming[0].first_name) {
+		throw new Error("Upcoming reminder missing first_name from JOIN");
+	}
+
+	// Groups
+	console.log("\n📂 Creating group...");
+	const group = crmApi.createGroup({ name: "VIP Clients", description: "High-value clients" });
+	console.log(`  Created: ${group.name} (ID: ${group.id})`);
+	const groups = crmApi.getGroups();
+	console.log(`  Total groups: ${groups.length}`);
+
+	// Delete operations
+	console.log("\n🗑️  Testing deletions...");
+	console.log(`  Delete relationship: ${crmApi.deleteRelationship(relationship.id)}`);
+	console.log(`  Delete reminder: ${crmApi.deleteReminder(reminder.id)}`);
+	console.log(`  Delete interaction: ${crmApi.deleteInteraction(interaction.id)}`);
+	console.log(`  Delete group: ${crmApi.deleteGroup(group.id)}`);
+	console.log(`  Delete contact2: ${crmApi.deleteContact(contact2.id)}`);
+	console.log(`  Delete contact: ${crmApi.deleteContact(contact.id)}`);
+	console.log(`  Delete company: ${crmApi.deleteCompany(company.id)}`);
+
+	// Verify deletions
+	const remaining = crmApi.getContacts();
+	if (remaining.length !== 0) {
+		throw new Error(`Expected 0 contacts after deletion, got ${remaining.length}`);
+	}
+
 	// List all contacts
 	console.log("\n📊 All contacts:");
 	const allContacts = crmApi.getContacts();
-	for (const c of allContacts) {
-		console.log(`  - ${c.first_name} ${c.last_name} (${c.email}) @ ${c.company_name ?? "No company"}`);
-	}
+	console.log(`  Total: ${allContacts.length}`);
 
 	console.log("\n✅ All tests passed!");
 } catch (error) {

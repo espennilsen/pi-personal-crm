@@ -94,6 +94,9 @@ export interface Reminder {
 	reminder_date: string; // YYYY-MM-DD
 	message?: string;
 	created_at: string;
+	// Joined from crm_contacts (present when fetched via getUpcomingReminders)
+	first_name?: string;
+	last_name?: string;
 }
 
 export interface CreateReminderData {
@@ -112,6 +115,9 @@ export interface Relationship {
 	relationship_type: string; // "spouse", "child", "parent", "colleague", etc.
 	notes?: string;
 	created_at: string;
+	// Joined from crm_contacts (present when fetched via getRelationships)
+	first_name?: string;
+	last_name?: string;
 }
 
 export interface CreateRelationshipData {
