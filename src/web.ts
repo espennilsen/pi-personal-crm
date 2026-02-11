@@ -73,27 +73,31 @@ export async function handleCrmPage(
 		return handleCrmApi(req, res, subPath);
 	}
 
-	// Trailing-slash redirect (needed when mounted at a prefix)
-	if (urlPath === "/" && method === "GET") {
-		const rawUrl = req.url ?? "/";
-		const qIdx = rawUrl.indexOf("?");
-		const rawPath = qIdx >= 0 ? rawUrl.slice(0, qIdx) : rawUrl;
-		if (rawPath.length > 1 && !rawPath.endsWith("/")) {
-			const qs = qIdx >= 0 ? rawUrl.slice(qIdx) : "";
-			res.writeHead(301, { Location: rawPath + "/" + qs });
-			res.end();
+	try {
+		// Trailing-slash redirect (needed when mounted at a prefix)
+		if (urlPath === "/" && method === "GET") {
+			const rawUrl = req.url ?? "/";
+			const qIdx = rawUrl.indexOf("?");
+			const rawPath = qIdx >= 0 ? rawUrl.slice(0, qIdx) : rawUrl;
+			if (rawPath.length > 1 && !rawPath.endsWith("/")) {
+				const qs = qIdx >= 0 ? rawUrl.slice(qIdx) : "";
+				res.writeHead(301, { Location: rawPath + "/" + qs });
+				res.end();
+				return;
+			}
+		}
+
+		if (method === "GET" && urlPath === "/") {
+			const CRM_HTML = loadCrmHtml();
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(CRM_HTML);
 			return;
 		}
-	}
 
-	if (method === "GET" && urlPath === "/") {
-		const CRM_HTML = loadCrmHtml();
-		res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-		res.end(CRM_HTML);
-		return;
+		json(res, 404, { error: "Not found" });
+	} catch (err: any) {
+		json(res, 500, { error: err.message });
 	}
-
-	json(res, 404, { error: "Not found" });
 }
 
 // ── API Handler ─────────────────────────────────────────────────
