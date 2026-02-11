@@ -48,11 +48,13 @@ let stmts: {
 
 	// Interactions
 	getInteractions: any;
+	getAllInteractions: any;
 	insertInteraction: any;
 	deleteInteraction: any;
 
 	// Reminders
 	getReminders: any;
+	getAllReminders: any;
 	getRemindersByContact: any;
 	getUpcomingReminders: any;
 	insertReminder: any;
@@ -324,6 +326,13 @@ export function initDb(dbPath: string): void {
 				ORDER BY happened_at DESC
 			`),
 
+			getAllInteractions: db.prepare(`
+				SELECT i.*, c.first_name, c.last_name
+				FROM crm_interactions i
+				JOIN crm_contacts c ON i.contact_id = c.id
+				ORDER BY i.happened_at DESC
+			`),
+
 			insertInteraction: db.prepare(`
 				INSERT INTO crm_interactions (contact_id, interaction_type, summary, notes, happened_at)
 				VALUES (?, ?, ?, ?, ?)
@@ -335,6 +344,13 @@ export function initDb(dbPath: string): void {
 			getReminders: db.prepare(`
 				SELECT * FROM crm_reminders
 				ORDER BY reminder_date
+			`),
+
+			getAllReminders: db.prepare(`
+				SELECT r.*, c.first_name, c.last_name
+				FROM crm_reminders r
+				JOIN crm_contacts c ON r.contact_id = c.id
+				ORDER BY r.reminder_date
 			`),
 
 			getRemindersByContact: db.prepare(`
@@ -721,6 +737,10 @@ export const crmApi: CrmApi = {
 		return stmts.getInteractions.all(contactId);
 	},
 
+	getAllInteractions(): Interaction[] {
+		return stmts.getAllInteractions.all();
+	},
+
 	createInteraction(data: CreateInteractionData): Interaction {
 		const happened_at = data.happened_at ?? new Date().toISOString();
 
@@ -756,6 +776,10 @@ export const crmApi: CrmApi = {
 			return stmts.getRemindersByContact.all(contactId);
 		}
 		return stmts.getReminders.all();
+	},
+
+	getAllReminders(): Reminder[] {
+		return stmts.getAllReminders.all();
 	},
 
 	getUpcomingReminders(days: number = 7): Reminder[] {
