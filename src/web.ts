@@ -24,7 +24,7 @@ function loadCrmHtml(): string {
 		"utf-8",
 	);
 	const pageDir = path.resolve(import.meta.dirname, "../pages");
-	const pageNames = ["contacts", "groups", "interactions", "reminders"];
+	const pageNames = ["contacts", "companies", "groups", "interactions", "reminders", "upcoming"];
 	const pagesHtml = pageNames
 		.map((name) =>
 			fs.readFileSync(path.join(pageDir, `${name}.html`), "utf-8"),
@@ -76,6 +76,11 @@ export async function handleCrmRequest(
 
 		// ── Contacts ────────────────────────────────────────
 		if (method === "GET" && urlPath === "/api/crm/contacts") {
+			const companyId = url.searchParams.get("company_id");
+			if (companyId) {
+				json(res, 200, crmApi.getContactsByCompany(parseInt(companyId)));
+				return;
+			}
 			const search = url.searchParams.get("q") ?? undefined;
 			const limit = parseInt(url.searchParams.get("limit") ?? "1000");
 			json(res, 200, crmApi.getContacts(search, limit));
