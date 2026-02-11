@@ -27,6 +27,7 @@ import type {
 	SetExtensionFieldData,
 	ImportResult,
 } from "./types.ts";
+import { VALID_EXTENSION_FIELD_TYPES } from "./types.ts";
 import { crmRegistry } from "./registry.ts";
 
 // ── Prepared Statements (initialized in init()) ────────────────
@@ -949,6 +950,10 @@ export const crmApi: CrmApi = {
 	},
 
 	setExtensionField(data: SetExtensionFieldData): ExtensionField {
+		const ft = data.field_type ?? "text";
+		if (!VALID_EXTENSION_FIELD_TYPES.includes(ft)) {
+			throw new Error(`Invalid field_type "${ft}" — must be one of: ${VALID_EXTENSION_FIELD_TYPES.join(", ")}`);
+		}
 		stmts.upsertExtensionField.run(
 			data.contact_id,
 			data.source,

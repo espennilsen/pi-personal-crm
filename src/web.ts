@@ -9,6 +9,7 @@ import * as http from "node:http";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { crmApi } from "./db.ts";
+import { VALID_EXTENSION_FIELD_TYPES } from "./types.ts";
 
 // ── Validation ──────────────────────────────────────────────────
 
@@ -345,9 +346,8 @@ export async function handleCrmRequest(
 			if (!body.source || !body.field_name || body.field_value == null) {
 				json(res, 400, { error: "source, field_name, and field_value are required" }); return;
 			}
-			const validFieldTypes = ["text", "url", "date", "number", "json"];
-			if (body.field_type && !validFieldTypes.includes(body.field_type)) {
-				json(res, 400, { error: `Invalid field_type — must be one of: ${validFieldTypes.join(", ")}` }); return;
+			if (body.field_type && !VALID_EXTENSION_FIELD_TYPES.includes(body.field_type)) {
+				json(res, 400, { error: `Invalid field_type — must be one of: ${VALID_EXTENSION_FIELD_TYPES.join(", ")}` }); return;
 			}
 			json(res, 200, crmApi.setExtensionField({ ...body, contact_id: contactId }));
 			return;
