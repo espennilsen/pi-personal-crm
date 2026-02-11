@@ -58,3 +58,33 @@ crmRegistry.on("contact.created", async (contact) => {
   // Custom logic
 });
 ```
+
+### Extension fields
+
+Third-party extensions can attach read-only fields to contacts (displayed in the web UI but not editable there):
+
+```typescript
+import { crmApi } from "pi-personal-crm/src/db.ts";
+
+// Write fields (upsert — safe to call repeatedly)
+crmApi.setExtensionField({
+  contact_id: 42,
+  source: "linkedin",          // your extension name
+  field_name: "headline",
+  field_value: "Senior Engineer at Acme",
+  label: "LinkedIn Headline",  // optional display label
+  field_type: "text",          // "text" | "url" | "date" | "number" | "json"
+});
+
+// Read back
+const fields = crmApi.getExtensionFields(42);
+const linkedinFields = crmApi.getExtensionFieldsBySource(42, "linkedin");
+
+// Clean up
+crmApi.deleteExtensionFields(42, "linkedin");
+```
+
+REST API equivalents:
+- `GET  /api/crm/contacts/:id/extension-fields[?source=...]`
+- `PUT  /api/crm/contacts/:id/extension-fields` (body: `{ source, field_name, field_value, label?, field_type? }`)
+- `DELETE /api/crm/contacts/:id/extension-fields?source=...`

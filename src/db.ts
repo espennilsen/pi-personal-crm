@@ -23,8 +23,11 @@ import type {
 	CreateRelationshipData,
 	Group,
 	CreateGroupData,
+	ExtensionField,
+	SetExtensionFieldData,
 	ImportResult,
 } from "./types.ts";
+import { VALID_EXTENSION_FIELD_TYPES } from "./types.ts";
 import { crmRegistry } from "./registry.ts";
 
 // ── Prepared Statements (initialized in init()) ────────────────
@@ -75,6 +78,12 @@ let stmts: {
 	getGroupMembers: any;
 	getContactGroups: any;
 	addGroupMember: any;
+
+	// Extension fields
+	getExtensionFields: any;
+	getExtensionFieldsBySource: any;
+	upsertExtensionField: any;
+	deleteExtensionFields: any;
 
 	// Duplicate detection
 	findDuplicatesByEmail: any;
@@ -189,6 +198,25 @@ const migrations: string[] = [
 
 		CREATE INDEX IF NOT EXISTS idx_group_members_group ON crm_group_members(group_id);
 		CREATE INDEX IF NOT EXISTS idx_group_members_contact ON crm_group_members(contact_id);
+		`,
+
+		// Migration 3: Extension fields (third-party data)
+		`
+		CREATE TABLE IF NOT EXISTS crm_extension_fields (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			contact_id INTEGER NOT NULL,
+			source TEXT NOT NULL,
+			field_name TEXT NOT NULL,
+			field_value TEXT NOT NULL,
+			label TEXT,
+			field_type TEXT NOT NULL DEFAULT 'text',
+			updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (contact_id) REFERENCES crm_contacts(id) ON DELETE CASCADE,
+			UNIQUE(contact_id, source, field_name)
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_ext_fields_contact ON crm_extension_fields(contact_id);
+		CREATE INDEX IF NOT EXISTS idx_ext_fields_source ON crm_extension_fields(source);
 		`,
 ];
 
@@ -440,6 +468,34 @@ export function initDb(dbPath: string): void {
 			removeGroupMember: db.prepare(`
 				DELETE FROM crm_group_members
 				WHERE group_id = ? AND contact_id = ?
+			`),
+
+			// Extension fields
+			getExtensionFields: db.prepare(`
+				SELECT * FROM crm_extension_fields
+				WHERE contact_id = ?
+				ORDER BY source, field_name
+			`),
+
+			getExtensionFieldsBySource: db.prepare(`
+				SELECT * FROM crm_extension_fields
+				WHERE contact_id = ? AND source = ?
+				ORDER BY field_name
+			`),
+
+			upsertExtensionField: db.prepare(`
+				INSERT INTO crm_extension_fields (contact_id, source, field_name, field_value, label, field_type, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+				ON CONFLICT(contact_id, source, field_name) DO UPDATE SET
+					field_value = excluded.field_value,
+					label = COALESCE(excluded.label, crm_extension_fields.label),
+					field_type = excluded.field_type,
+					updated_at = datetime('now')
+			`),
+
+			deleteExtensionFields: db.prepare(`
+				DELETE FROM crm_extension_fields
+				WHERE contact_id = ? AND source = ?
 			`),
 
 			// Duplicate detection
@@ -881,6 +937,39 @@ export const crmApi: CrmApi = {
 	removeGroupMember(groupId: number, contactId: number): boolean {
 		const result = stmts.removeGroupMember.run(groupId, contactId);
 		return result.changes > 0;
+	},
+
+	// ── Extension Fields ────────────────────────────────────────
+
+	getExtensionFields(contactId: number): ExtensionField[] {
+		return stmts.getExtensionFields.all(contactId);
+	},
+
+	getExtensionFieldsBySource(contactId: number, source: string): ExtensionField[] {
+		return stmts.getExtensionFieldsBySource.all(contactId, source);
+	},
+
+	setExtensionField(data: SetExtensionFieldData): ExtensionField {
+		const ft = data.field_type ?? "text";
+		if (!VALID_EXTENSION_FIELD_TYPES.includes(ft)) {
+			throw new Error(`Invalid field_type "${ft}" — must be one of: ${VALID_EXTENSION_FIELD_TYPES.join(", ")}`);
+		}
+		stmts.upsertExtensionField.run(
+			data.contact_id,
+			data.source,
+			data.field_name,
+			data.field_value,
+			data.label ?? null,
+			ft,
+		);
+		// Always look up by unique key — lastInsertRowid is unreliable on upsert-update
+		const fields = this.getExtensionFieldsBySource(data.contact_id, data.source);
+		return fields.find(f => f.field_name === data.field_name)!;
+	},
+
+	deleteExtensionFields(contactId: number, source: string): number {
+		const result = stmts.deleteExtensionFields.run(contactId, source);
+		return result.changes;
 	},
 
 	// ── Search ──────────────────────────────────────────────────

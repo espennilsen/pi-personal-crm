@@ -290,7 +290,7 @@
   }
 
   function renderContactDetail(data) {
-    const { contact, interactions, reminders, relationships, groups } = data;
+    const { contact, interactions, reminders, relationships, groups, extensionFields } = data;
     const initials = `${contact.first_name.charAt(0)}${(contact.last_name || '').charAt(0)}`.toUpperCase();
 
     const panel = document.getElementById('detailPanel');
@@ -371,6 +371,8 @@
       </div>
       ` : ''}
 
+      ${renderExtensionFields(extensionFields || [])}
+
       <div class="section">
         <div class="section-title">Timeline</div>
         ${interactions.length > 0 ? `
@@ -391,6 +393,51 @@
         ` : '<div class="empty-state" style="padding: 20px;"><p>No interactions yet</p></div>'}
       </div>
     `;
+  }
+
+  // ── Extension Fields (read-only) ──────────────────────────────
+
+  function renderExtensionFields(fields) {
+    if (!fields || fields.length === 0) return '';
+
+    // Group by source
+    const bySource = {};
+    for (const f of fields) {
+      if (!bySource[f.source]) bySource[f.source] = [];
+      bySource[f.source].push(f);
+    }
+
+    return Object.entries(bySource).map(([source, fields]) => `
+      <div class="section">
+        <div class="section-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>🔌 ${esc(source)}</span>
+          <span style="font-size: 10px; font-weight: 400; color: var(--fg3); text-transform: none; letter-spacing: 0;">via extension</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          ${fields.map(f => `
+            <div class="detail-field" style="gap: 10px;">
+              <span style="font-size: 12px; color: var(--fg3); min-width: 100px;">${esc(f.label || f.field_name)}</span>
+              ${renderExtFieldValue(f)}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderExtFieldValue(f) {
+    const v = f.field_value;
+    if (f.field_type === 'url' && v) {
+      const href = /^https?:\/\//i.test(v) ? v : '';
+      return href ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="color: var(--accent2);">${esc(v)}</a>` : `<span>${esc(v)}</span>`;
+    }
+    if (f.field_type === 'json' && v) {
+      try {
+        const pretty = JSON.stringify(JSON.parse(v), null, 2);
+        return `<pre style="margin: 0; font-size: 11px; color: var(--fg2); white-space: pre-wrap; max-height: 120px; overflow: auto;">${esc(pretty)}</pre>`;
+      } catch { /* fall through */ }
+    }
+    return `<span>${esc(v)}</span>`;
   }
 
   // ── Companies ────────────────────────────────────────────────
