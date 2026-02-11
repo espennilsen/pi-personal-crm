@@ -100,6 +100,26 @@ try {
 		throw new Error(`Expected 1 result for email search, got ${partial.length}`);
 	}
 
+	// Search — fuzzy (typo)
+	console.log("\n🔍 Testing fuzzy search...");
+	const fuzzy1 = crmApi.searchContacts("Jon Doe");
+	console.log(`  "Jon Doe" (typo): ${fuzzy1.length} result(s)`);
+	if (fuzzy1.length !== 1 || fuzzy1[0].id !== contact.id) {
+		throw new Error(`Expected fuzzy match for "Jon Doe", got ${fuzzy1.length}`);
+	}
+
+	const fuzzy2 = crmApi.searchContacts("Jonh Do");
+	console.log(`  "Jonh Do" (typo): ${fuzzy2.length} result(s)`);
+	if (fuzzy2.length !== 1) {
+		throw new Error(`Expected fuzzy match for "Jonh Do", got ${fuzzy2.length}`);
+	}
+
+	const fuzzy3 = crmApi.searchContacts("xyzzy qqq");
+	console.log(`  "xyzzy qqq" (no match): ${fuzzy3.length} result(s)`);
+	if (fuzzy3.length !== 0) {
+		throw new Error(`Expected 0 results for gibberish, got ${fuzzy3.length}`);
+	}
+
 	// Get interactions
 	console.log("\n📋 Getting interactions...");
 	const interactions = crmApi.getInteractions(contact.id);

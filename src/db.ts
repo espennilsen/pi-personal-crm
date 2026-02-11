@@ -202,6 +202,9 @@ export function initDb(dbPath: string): void {
 	db.pragma("journal_mode = WAL");
 	db.pragma("foreign_keys = ON");
 
+	// Register custom functions
+	db.function("levenshtein", { deterministic: true }, levenshtein);
+
 	// Migration tracking
 	db.exec(`CREATE TABLE IF NOT EXISTS crm_module_versions (
 		module TEXT PRIMARY KEY,
@@ -513,9 +516,70 @@ function searchContactsSmart(query: string, limit: number): Contact[] {
 		}
 	}
 
-	// Fallback: original single-pattern LIKE across all fields
+	// Step 3: original single-pattern LIKE across all fields
 	const pattern = `%${trimmed}%`;
-	return stmts.searchContacts.all(pattern, pattern, pattern, pattern, pattern, pattern, limit);
+	const likeResults: Contact[] = stmts.searchContacts.all(pattern, pattern, pattern, pattern, pattern, pattern, limit);
+	if (likeResults.length > 0) return likeResults;
+
+	// Step 4: Fuzzy search — levenshtein distance on name terms
+	return searchContactsFuzzy(terms, limit);
+}
+
+/**
+ * Fuzzy fallback: find contacts where name terms are within edit distance.
+ * Threshold scales with term length: max(2, floor(term.length / 3)).
+ */
+function searchContactsFuzzy(terms: string[], limit: number): Contact[] {
+	// Score every contact by best combined distance across terms
+	const all: Contact[] = db.prepare(`
+		SELECT c.*, co.name as company_name
+		FROM crm_contacts c
+		LEFT JOIN crm_companies co ON c.company_id = co.id
+		ORDER BY c.first_name, c.last_name
+	`).all() as Contact[];
+
+	const scored: { contact: Contact; score: number }[] = [];
+
+	for (const c of all) {
+		const first = (c.first_name ?? "").toLowerCase();
+		const last = (c.last_name ?? "").toLowerCase();
+		const full = `${first} ${last}`.trim();
+		const nick = (c.nickname ?? "").toLowerCase();
+
+		let totalScore = 0;
+		let allMatch = true;
+
+		for (const term of terms) {
+			const t = term.toLowerCase();
+			const threshold = Math.max(2, Math.floor(t.length / 3));
+
+			// Best distance across name fields and substrings
+			const distances = [
+				levenshtein(t, first),
+				levenshtein(t, last),
+				levenshtein(t, nick),
+			];
+
+			// Also check against individual words in first_name (for middle names)
+			for (const word of first.split(/\s+/)) {
+				distances.push(levenshtein(t, word));
+			}
+
+			const best = Math.min(...distances);
+			if (best > threshold) {
+				allMatch = false;
+				break;
+			}
+			totalScore += best;
+		}
+
+		if (allMatch) {
+			scored.push({ contact: c, score: totalScore });
+		}
+	}
+
+	scored.sort((a, b) => a.score - b.score);
+	return scored.slice(0, limit).map(s => s.contact);
 }
 
 // ── CRM API Implementation ──────────────────────────────────────
@@ -999,4 +1063,40 @@ function parseCsvLines(csv: string): string[][] {
 	}
 
 	return rows;
+}
+
+// ── Levenshtein Distance ────────────────────────────────────────
+
+/**
+ * Classic Levenshtein edit distance. O(n*m) time, O(min(n,m)) space.
+ */
+function levenshtein(a: string, b: string): number {
+	if (a === b) return 0;
+	if (a.length === 0) return b.length;
+	if (b.length === 0) return a.length;
+
+	// Ensure a is the shorter string for space efficiency
+	if (a.length > b.length) [a, b] = [b, a];
+
+	const aLen = a.length;
+	const bLen = b.length;
+	let prev = new Array(aLen + 1);
+	let curr = new Array(aLen + 1);
+
+	for (let i = 0; i <= aLen; i++) prev[i] = i;
+
+	for (let j = 1; j <= bLen; j++) {
+		curr[0] = j;
+		for (let i = 1; i <= aLen; i++) {
+			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+			curr[i] = Math.min(
+				prev[i] + 1,      // deletion
+				curr[i - 1] + 1,  // insertion
+				prev[i - 1] + cost, // substitution
+			);
+		}
+		[prev, curr] = [curr, prev];
+	}
+
+	return prev[aLen];
 }
