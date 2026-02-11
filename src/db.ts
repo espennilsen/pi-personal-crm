@@ -25,6 +25,7 @@ import type {
 	CreateGroupData,
 	ExtensionField,
 	SetExtensionFieldData,
+	SetCompanyExtensionFieldData,
 	ImportResult,
 } from "./types.ts";
 import { VALID_EXTENSION_FIELD_TYPES } from "./types.ts";
@@ -79,11 +80,17 @@ let stmts: {
 	getContactGroups: any;
 	addGroupMember: any;
 
-	// Extension fields
+	// Extension fields (contacts)
 	getExtensionFields: any;
 	getExtensionFieldsBySource: any;
 	upsertExtensionField: any;
 	deleteExtensionFields: any;
+
+	// Extension fields (companies)
+	getCompanyExtensionFields: any;
+	getCompanyExtensionFieldsBySource: any;
+	upsertCompanyExtensionField: any;
+	deleteCompanyExtensionFields: any;
 
 	// Duplicate detection
 	findDuplicatesByEmail: any;
@@ -217,6 +224,25 @@ const migrations: string[] = [
 
 		CREATE INDEX IF NOT EXISTS idx_ext_fields_contact ON crm_extension_fields(contact_id);
 		CREATE INDEX IF NOT EXISTS idx_ext_fields_source ON crm_extension_fields(source);
+		`,
+
+		// Migration 4: Extension fields for companies
+		`
+		CREATE TABLE IF NOT EXISTS crm_company_extension_fields (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			company_id INTEGER NOT NULL,
+			source TEXT NOT NULL,
+			field_name TEXT NOT NULL,
+			field_value TEXT NOT NULL,
+			label TEXT,
+			field_type TEXT NOT NULL DEFAULT 'text',
+			updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+			FOREIGN KEY (company_id) REFERENCES crm_companies(id) ON DELETE CASCADE,
+			UNIQUE(company_id, source, field_name)
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_co_ext_fields_company ON crm_company_extension_fields(company_id);
+		CREATE INDEX IF NOT EXISTS idx_co_ext_fields_source ON crm_company_extension_fields(source);
 		`,
 ];
 
@@ -496,6 +522,34 @@ export function initDb(dbPath: string): void {
 			deleteExtensionFields: db.prepare(`
 				DELETE FROM crm_extension_fields
 				WHERE contact_id = ? AND source = ?
+			`),
+
+			// Extension fields (companies)
+			getCompanyExtensionFields: db.prepare(`
+				SELECT * FROM crm_company_extension_fields
+				WHERE company_id = ?
+				ORDER BY source, field_name
+			`),
+
+			getCompanyExtensionFieldsBySource: db.prepare(`
+				SELECT * FROM crm_company_extension_fields
+				WHERE company_id = ? AND source = ?
+				ORDER BY field_name
+			`),
+
+			upsertCompanyExtensionField: db.prepare(`
+				INSERT INTO crm_company_extension_fields (company_id, source, field_name, field_value, label, field_type, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+				ON CONFLICT(company_id, source, field_name) DO UPDATE SET
+					field_value = excluded.field_value,
+					label = COALESCE(excluded.label, crm_company_extension_fields.label),
+					field_type = excluded.field_type,
+					updated_at = datetime('now')
+			`),
+
+			deleteCompanyExtensionFields: db.prepare(`
+				DELETE FROM crm_company_extension_fields
+				WHERE company_id = ? AND source = ?
 			`),
 
 			// Duplicate detection
@@ -969,6 +1023,38 @@ export const crmApi: CrmApi = {
 
 	deleteExtensionFields(contactId: number, source: string): number {
 		const result = stmts.deleteExtensionFields.run(contactId, source);
+		return result.changes;
+	},
+
+	// ── Extension Fields (Companies) ────────────────────────────
+
+	getCompanyExtensionFields(companyId: number): ExtensionField[] {
+		return stmts.getCompanyExtensionFields.all(companyId);
+	},
+
+	getCompanyExtensionFieldsBySource(companyId: number, source: string): ExtensionField[] {
+		return stmts.getCompanyExtensionFieldsBySource.all(companyId, source);
+	},
+
+	setCompanyExtensionField(data: SetCompanyExtensionFieldData): ExtensionField {
+		const ft = data.field_type ?? "text";
+		if (!VALID_EXTENSION_FIELD_TYPES.includes(ft)) {
+			throw new Error(`Invalid field_type "${ft}" — must be one of: ${VALID_EXTENSION_FIELD_TYPES.join(", ")}`);
+		}
+		stmts.upsertCompanyExtensionField.run(
+			data.company_id,
+			data.source,
+			data.field_name,
+			data.field_value,
+			data.label ?? null,
+			ft,
+		);
+		const fields = this.getCompanyExtensionFieldsBySource(data.company_id, data.source);
+		return fields.find(f => f.field_name === data.field_name)!;
+	},
+
+	deleteCompanyExtensionFields(companyId: number, source: string): number {
+		const result = stmts.deleteCompanyExtensionFields.run(companyId, source);
 		return result.changes;
 	},
 

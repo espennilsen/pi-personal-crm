@@ -84,7 +84,26 @@ const linkedinFields = crmApi.getExtensionFieldsBySource(42, "linkedin");
 crmApi.deleteExtensionFields(42, "linkedin");
 ```
 
+The same API is available for companies:
+
+```typescript
+crmApi.setCompanyExtensionField({
+  company_id: 5,
+  source: "clearbit",
+  field_name: "employee_count",
+  field_value: "250",
+  label: "Employees",
+  field_type: "number",
+});
+
+const coFields = crmApi.getCompanyExtensionFields(5);
+crmApi.deleteCompanyExtensionFields(5, "clearbit");
+```
+
 REST API equivalents:
 - `GET  /api/crm/contacts/:id/extension-fields[?source=...]`
 - `PUT  /api/crm/contacts/:id/extension-fields` (body: `{ source, field_name, field_value, label?, field_type? }`)
 - `DELETE /api/crm/contacts/:id/extension-fields?source=...`
+- `GET  /api/crm/companies/:id/extension-fields[?source=...]`
+- `PUT  /api/crm/companies/:id/extension-fields` (body: `{ source, field_name, field_value, label?, field_type? }`)
+- `DELETE /api/crm/companies/:id/extension-fields?source=...`
