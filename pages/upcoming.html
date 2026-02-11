@@ -123,7 +123,12 @@
       const month = parseInt(parts[1]) - 1;
       const day = parseInt(parts[2]);
       let next = new Date(today.getFullYear(), month, day);
-      if (next < today) next = new Date(today.getFullYear() + 1, month, day);
+      // If the month rolled over (e.g. Feb 29 in a non-leap year → Mar 1), pin to Feb 28
+      if (next.getMonth() !== month) next = new Date(today.getFullYear(), month + 1, 0);
+      if (next < today) {
+        next = new Date(today.getFullYear() + 1, month, day);
+        if (next.getMonth() !== month) next = new Date(today.getFullYear() + 1, month + 1, 0);
+      }
       return next;
     } catch { return null; }
   }
