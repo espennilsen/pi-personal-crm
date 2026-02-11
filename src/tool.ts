@@ -8,6 +8,16 @@ import type { CrmApi } from "./types.ts";
 import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
 
+/** Sanitize a URL: only allow http(s). Returns cleaned URL or undefined. */
+function sanitizeUrl(value: unknown): string | undefined {
+	if (value == null || value === "") return undefined;
+	const s = String(value).trim();
+	if (!s) return undefined;
+	if (/^https?:\/\//i.test(s)) return s;
+	if (!s.includes("://")) return `https://${s}`;
+	throw new Error("Invalid URL protocol — only http and https are allowed");
+}
+
 // Note: ExtensionAPI is from @mariozechner/pi-coding-agent
 // We define minimal interface here to avoid hard dependency
 interface ExtensionAPI {
@@ -447,9 +457,13 @@ export function registerCrmTool(pi: ExtensionAPI, getCrm: () => CrmApi | null): 
 						return text("❌ company_name is required");
 					}
 
+					let website: string | undefined;
+					try { website = sanitizeUrl(params.website); }
+					catch (e: any) { return text(`❌ ${e.message}`); }
+
 					const company = crm.createCompany({
 						name: params.company_name,
-						website: params.website,
+						website,
 						industry: params.industry,
 						notes: params.notes,
 					});
