@@ -4,13 +4,13 @@
 
 ```bash
 # Local path
-pi install /path/to/pi-crm-personal
+pi install /path/to/pi-personal-crm
 
 # Or from npm (once published)
-pi install npm:pi-crm-personal
+pi install npm:pi-personal-crm
 
 # Or test without installing
-pi -e /path/to/pi-crm-personal/src/index.ts
+pi -e /path/to/pi-personal-crm/src/index.ts
 ```
 
 The extension auto-discovers and loads via the `pi` manifest in `package.json`.
@@ -34,7 +34,7 @@ Add to `.pi/settings.json`:
 
 ```json
 {
-  "packages": ["/path/to/pi-crm-personal"]
+  "packages": ["/path/to/pi-personal-crm"]
 }
 ```
 
@@ -45,8 +45,8 @@ Pi will auto-install on startup.
 Other pi extensions can import from this package:
 
 ```typescript
-import { crmApi } from "pi-crm-personal/src/db.ts";
-import { crmRegistry } from "pi-crm-personal/src/registry.ts";
+import { crmApi } from "pi-personal-crm/src/db.ts";
+import { crmRegistry } from "pi-personal-crm/src/registry.ts";
 
 // Use the API
 const contacts = crmApi.getContacts();

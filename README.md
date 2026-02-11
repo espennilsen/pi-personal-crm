@@ -1,4 +1,4 @@
-# pi-crm-personal
+# pi-personal-crm
 
 Personal CRM extension for [pi](https://github.com/badlogic/pi-mono) coding agents.
 
@@ -16,7 +16,7 @@ Personal CRM extension for [pi](https://github.com/badlogic/pi-mono) coding agen
 ## Installation
 
 ```bash
-pi install git@github.com:espennilsen/pi-crm-personal.git
+pi install git@github.com:espennilsen/pi-personal-crm.git
 ```
 
 Data is stored in `~/.pi/agent/crm/crm.db`.

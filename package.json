@@ -1,5 +1,5 @@
 {
-  "name": "pi-crm-personal",
+  "name": "pi-personal-crm",
   "version": "0.2.0",
   "description": "Personal CRM extension for pi coding agents",
   "type": "module",

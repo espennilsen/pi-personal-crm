@@ -2,7 +2,7 @@
  * CRM Plugin Registry — allows other extensions to extend the CRM.
  *
  * Usage:
- *   import { crmRegistry } from "pi-crm-personal/registry";
+ *   import { crmRegistry } from "pi-personal-crm/registry";
  *
  *   // Register a custom entity type
  *   crmRegistry.registerEntityType({ name: "deal", ... });

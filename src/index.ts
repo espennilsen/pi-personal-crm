@@ -1,5 +1,5 @@
 /**
- * pi-crm-personal — Personal CRM extension for pi.
+ * pi-personal-crm — Personal CRM extension for pi.
  *
  * Registers the CRM tool, /crm-web command, and injects system prompt context.
  * Data is stored in ~/.pi/agent/crm/crm.db.

@@ -1,5 +1,5 @@
 /**
- * pi-crm-personal — Core types and interfaces.
+ * pi-personal-crm — Core types and interfaces.
  */
 
 // ── Contact ─────────────────────────────────────────────────────
