@@ -2,7 +2,6 @@
   "name": "pi-crm-personal",
   "version": "0.2.0",
   "description": "Personal CRM extension for pi coding agents",
-  "private": true,
   "type": "module",
   "keywords": ["pi-package"],
   "pi": {
