@@ -54,10 +54,16 @@
         }
       }
 
-      // Custom reminders
+      // Reminders — skip birthday/anniversary reminders for contacts that
+      // already contributed an item from their contact fields above to avoid duplicates
+      const contactFieldItems = new Set(items.map(i => `${i.contactId}:${i.type}`));
       for (const r of reminders) {
         const rDate = new Date(r.reminder_date + 'T00:00:00');
         if (rDate >= today && rDate <= endDate) {
+          if ((r.reminder_type === 'birthday' || r.reminder_type === 'anniversary') &&
+              contactFieldItems.has(`${r.contact_id}:${r.reminder_type}`)) {
+            continue;
+          }
           const daysAway = Math.round((rDate - today) / 86400000);
           const contactName = r.first_name ? `${r.first_name} ${r.last_name || ''}`.trim() : 'Unknown';
           const icon = r.reminder_type === 'birthday' ? '🎂' : r.reminder_type === 'anniversary' ? '💍' : '📌';
