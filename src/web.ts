@@ -260,6 +260,7 @@ export function startCrmServer(port: number = 4100): string {
  */
 export function stopCrmServer(): boolean {
 	if (!server) return false;
+	server.closeAllConnections();
 	server.close();
 	server = null;
 	serverPort = null;
